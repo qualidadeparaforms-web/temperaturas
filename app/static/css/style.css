@@ -38,6 +38,13 @@ body {
 }
 
 .btn-etapa {
+  /* Não usa a classe "btn" do Bootstrap de propósito: o próprio
+     Bootstrap define ".btn-check:checked + .btn" com a mesma
+     especificidade da nossa regra de seleção logo abaixo, e essa
+     regra do Bootstrap "ganharia" o empate (mesmo resolvendo para
+     transparente, por depender de variáveis só definidas em
+     .btn-primary/.btn-outline-*), anulando o destaque de seleção.
+     Por isso replicamos aqui só o necessário do estilo de botão. */
   min-height: 72px;
   font-size: 1.15rem;
   font-weight: 700;
@@ -50,6 +57,10 @@ body {
   justify-content: center;
   text-align: center;
   padding: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out,
+    color 0.15s ease-in-out;
 }
 
 .btn-check:checked + .btn-etapa {
@@ -137,7 +148,10 @@ body {
 .cartao-resumo.total { background-color: var(--navy); }
 .cartao-resumo.conformes { background-color: var(--azul); }
 .cartao-resumo.fora-padrao { background-color: var(--vermelho); }
-.cartao-resumo.percentual { background-color: #55813f; }
+.cartao-resumo.percentual {
+  background-color: var(--amarelo);
+  color: var(--navy);
+}
 
 .linha-fora-padrao {
   background-color: rgba(192, 0, 0, 0.12) !important;

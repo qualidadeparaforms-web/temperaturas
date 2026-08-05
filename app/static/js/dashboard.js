@@ -80,9 +80,14 @@
       const pontos = registros
         .filter((r) => r.etapa === etapa)
         .map((r) => ({
-          x: `${r.data} ${r.horario}`,
+          // Eixo X numérico (timestamp), não texto: com eixo "category" o
+          // Chart.js ordena pela ordem de inserção nos datasets, não por
+          // data/hora real — misturando etapas diferentes gera um gráfico
+          // fora de ordem. Com "linear" os pontos ficam sempre corretos.
+          x: new Date(`${r.data_iso}T${r.horario}:00`).getTime(),
           y: r.temperatura,
           conforme: r.conforme,
+          rotulo: `${r.data} ${r.horario}`,
         }));
       const cor = CORES_ETAPA[etapa] || "#2E75B6";
       return {
@@ -110,6 +115,9 @@
           legend: { position: "bottom" },
           tooltip: {
             callbacks: {
+              title: function (items) {
+                return items[0]?.raw?.rotulo || "";
+              },
               label: function (item) {
                 const p = item.raw;
                 const situacao = p.conforme ? "conforme" : "⚠️ fora do padrão";
@@ -120,8 +128,17 @@
         },
         scales: {
           x: {
-            type: "category",
-            ticks: { autoSkip: true, maxTicksLimit: 12 },
+            type: "linear",
+            ticks: {
+              autoSkip: true,
+              maxTicksLimit: 12,
+              callback: function (valor) {
+                const d = new Date(valor);
+                const dataFmt = d.toLocaleDateString("pt-BR");
+                const horaFmt = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+                return [dataFmt, horaFmt];
+              },
+            },
             title: { display: true, text: "Data / Horário" },
           },
           y: {

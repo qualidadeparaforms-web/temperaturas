@@ -11,7 +11,7 @@
         {% for etapa in etapas %}
         <div class="col">
           <input type="radio" class="btn-check" name="etapa" id="etapa-{{ loop.index }}" value="{{ etapa }}" required>
-          <label class="btn btn-etapa w-100" for="etapa-{{ loop.index }}">{{ etapa }}</label>
+          <label class="btn-etapa w-100" for="etapa-{{ loop.index }}">{{ etapa }}</label>
         </div>
         {% endfor %}
       </div>
