@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block titulo %}Registrar Temperatura{% endblock %}
+
+{% block conteudo %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <form method="post" action="{{ url_for('registro.registrar') }}" id="formRegistro" autocomplete="off">
+
+      <h2 class="titulo-secao">1. Selecione a etapa</h2>
+      <div class="row row-cols-2 row-cols-md-3 g-2 mb-4" id="gradeEtapas">
+        {% for etapa in etapas %}
+        <div class="col">
+          <input type="radio" class="btn-check" name="etapa" id="etapa-{{ loop.index }}" value="{{ etapa }}" required>
+          <label class="btn btn-etapa w-100" for="etapa-{{ loop.index }}">{{ etapa }}</label>
+        </div>
+        {% endfor %}
+      </div>
+
+      <h2 class="titulo-secao">2. Temperatura (°C)</h2>
+      <div class="mb-4">
+        <input
+          type="number"
+          step="0.1"
+          inputmode="decimal"
+          name="temperatura"
+          id="campoTemperatura"
+          class="form-control form-control-temperatura text-center"
+          placeholder="0.0"
+          required>
+      </div>
+
+      <h2 class="titulo-secao">3. Responsável</h2>
+      <div class="mb-4">
+        <input
+          type="text"
+          name="responsavel"
+          id="campoResponsavel"
+          class="form-control form-control-lg"
+          placeholder="Nome de quem está registrando"
+          list="listaResponsaveis"
+          required>
+        <datalist id="listaResponsaveis">
+          {% for nome in responsaveis %}
+          <option value="{{ nome }}">
+          {% endfor %}
+        </datalist>
+      </div>
+
+      <button type="submit" class="btn btn-salvar w-100">💾 SALVAR</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+  // Lembra o último responsável digitado, para reduzir digitação
+  // entre um registro e outro (comum a mesma pessoa fazer vários seguidos).
+  (function () {
+    const campo = document.getElementById("campoResponsavel");
+    const salvo = localStorage.getItem("ultimoResponsavel");
+    if (salvo) {
+      campo.value = salvo;
+    }
+    document.getElementById("formRegistro").addEventListener("submit", function () {
+      localStorage.setItem("ultimoResponsavel", campo.value);
+    });
+  })();
+
+  // Após salvar, leva o foco de volta para a grade de etapas,
+  // agilizando o próximo registro.
+  window.addEventListener("load", function () {
+    const grade = document.getElementById("gradeEtapas");
+    if (grade) {
+      grade.scrollIntoView({ behavior: "instant", block: "start" });
+    }
+  });
+</script>
+{% endblock %}
