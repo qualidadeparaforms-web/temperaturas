@@ -20,6 +20,9 @@
           <li class="nav-item">
             <a class="nav-link {% if request.endpoint == 'registro.index' %}active{% endif %}" href="{{ url_for('registro.index') }}">Registrar</a>
           </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'dashboard.dashboard' %}active{% endif %}" href="{{ url_for('dashboard.dashboard') }}">Painel</a>
+          </li>
         </ul>
       </div>
     </div>
