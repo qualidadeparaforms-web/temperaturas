@@ -31,3 +31,16 @@ class Config:
     # Token para proteger o endpoint HTTP /backup/executar.
     # Se não for definido, o endpoint fica desabilitado.
     BACKUP_TOKEN = os.environ.get("BACKUP_TOKEN")
+
+    # Se "true", a própria aplicação roda o backup periodicamente em
+    # segundo plano (sem precisar de um Cron Job separado). Útil em
+    # planos sem disco persistente, combinado com BACKUP_S3_BUCKET:
+    # o banco é restaurado automaticamente do S3 quando o arquivo
+    # local não existe (ex.: após um redeploy em disco efêmero).
+    BACKUP_AUTOMATICO = os.environ.get("BACKUP_AUTOMATICO", "false").lower() in (
+        "1",
+        "true",
+        "sim",
+        "yes",
+    )
+    BACKUP_INTERVALO_HORAS = float(os.environ.get("BACKUP_INTERVALO_HORAS", "6"))

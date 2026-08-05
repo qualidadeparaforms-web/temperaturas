@@ -26,6 +26,14 @@ COMO AGENDAR:
   POST /backup/executar (ver app/routes/backup.py) chamado por um
   serviço externo de cron (ex.: cron-job.org, GitHub Actions
   agendado) enviando o cabeçalho X-Backup-Token.
+- Alternativa sem Cron Job nenhum: defina BACKUP_AUTOMATICO=true e a
+  própria aplicação roda esta rotina periodicamente em segundo plano
+  (ver app/__init__.py). Combinado com BACKUP_S3_BUCKET, isso permite
+  rodar em planos SEM disco persistente (ex.: Render free): a cada
+  novo deploy o banco local começa vazio, mas é restaurado
+  automaticamente a partir do último backup no S3 (ver
+  `restaurar_ultimo_backup`), então os dados não se perdem — apenas
+  os registros feitos depois do último backup ficam em risco.
 """
 
 import csv
@@ -75,20 +83,77 @@ def _limpar_antigos(destino_dir: str, prefixo: str, manter: int) -> None:
         os.remove(os.path.join(destino_dir, antigo))
 
 
+PREFIXO_S3 = "backups-temperaturas/"
+
+
+def _cliente_s3():
+    """Retorna um cliente boto3, ou None se a biblioteca não estiver instalada."""
+    try:
+        import boto3
+    except ImportError:
+        return None
+    return boto3.client("s3")
+
+
 def _upload_s3(caminho_arquivo: str) -> None:
     bucket = os.environ.get("BACKUP_S3_BUCKET")
     if not bucket:
         return
-    try:
-        import boto3
-    except ImportError:
+
+    s3 = _cliente_s3()
+    if s3 is None:
         print("boto3 não instalado — pulando upload para S3 (pip install boto3).")
         return
 
-    s3 = boto3.client("s3")
-    chave = f"backups-temperaturas/{os.path.basename(caminho_arquivo)}"
+    chave = f"{PREFIXO_S3}{os.path.basename(caminho_arquivo)}"
     s3.upload_file(caminho_arquivo, bucket, chave)
     print(f"Backup enviado para s3://{bucket}/{chave}")
+
+
+def restaurar_ultimo_backup() -> bool:
+    """Restaura o backup .db mais recente do S3 para DATABASE_PATH.
+
+    Usado na inicialização da aplicação (ver app/__init__.py) quando o
+    arquivo SQLite local não existe — situação comum em hospedagens
+    com disco efêmero (ex.: Render/Railway sem disco/volume
+    persistente) logo após um novo deploy. Assim os dados sobrevivem
+    entre deploys mesmo sem pagar por armazenamento persistente,
+    ficando em risco apenas os registros feitos após o último backup.
+
+    Retorna True se algum backup foi restaurado.
+    """
+    bucket = os.environ.get("BACKUP_S3_BUCKET")
+    if not bucket:
+        return False
+
+    s3 = _cliente_s3()
+    if s3 is None:
+        print("boto3 não instalado — não é possível restaurar backup do S3.")
+        return False
+
+    try:
+        resposta = s3.list_objects_v2(Bucket=bucket, Prefix=PREFIXO_S3)
+    except Exception as exc:  # depende de rede/credenciais — nunca deve travar o boot
+        print(f"Não foi possível consultar backups no S3: {exc}")
+        return False
+
+    candidatos = [obj for obj in resposta.get("Contents", []) if obj["Key"].endswith(".db")]
+    if not candidatos:
+        print("Nenhum backup .db encontrado no S3 para restaurar.")
+        return False
+
+    mais_recente = max(candidatos, key=lambda obj: obj["LastModified"])
+    destino = Config.DATABASE_PATH
+    os.makedirs(os.path.dirname(destino), exist_ok=True)
+
+    try:
+        s3.download_file(bucket, mais_recente["Key"], destino)
+    except Exception as exc:
+        print(f"Falha ao baixar backup do S3: {exc}")
+        return False
+
+    print(f"Banco restaurado a partir de s3://{bucket}/{mais_recente['Key']}")
+    return True
 
 
 def executar_backup() -> dict:

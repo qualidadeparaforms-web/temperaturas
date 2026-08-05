@@ -2,10 +2,10 @@
 # Em "New +" > "Blueprint", aponte para este repositório e o Render
 # lerá este arquivo automaticamente.
 #
-# IMPORTANTE: o disco persistente (`disk:`) exige um plano pago
-# (Starter ou superior) — o plano Free do Render não suporta discos,
-# e sem disco persistente o arquivo SQLite é apagado a cada novo
-# deploy. Veja o README.md para alternativas.
+# Este arquivo já vem configurado com a opção mais robusta: um Disk
+# persistente (exige plano pago Starter ou superior). Se preferir
+# rodar no plano Free (sem disco), veja a alternativa comentada no
+# final deste arquivo e no README.md ("Persistência do SQLite").
 services:
   - type: web
     name: temperaturas-app
@@ -26,3 +26,28 @@ services:
       name: dados
       mountPath: /var/data
       sizeGB: 1
+
+# ---------------------------------------------------------------------
+# ALTERNATIVA SEM DISCO PAGO (plano Free do Render ou similar):
+# remova o bloco "disk:" acima e troque DATABASE_PATH/BACKUP_DIR pelo
+# padrão do projeto (não precisam ser definidos), e adicione:
+#
+#     envVars:
+#       - key: BACKUP_AUTOMATICO
+#         value: "true"
+#       - key: BACKUP_S3_BUCKET
+#         value: seu-bucket-aqui
+#       - key: AWS_ACCESS_KEY_ID
+#         sync: false
+#       - key: AWS_SECRET_ACCESS_KEY
+#         sync: false
+#
+# Com isso a própria aplicação faz backup periódico para o S3 (ou
+# compatível: Cloudflare R2, Backblaze B2) e restaura automaticamente
+# o último backup sempre que subir num disco vazio (ex.: após um
+# redeploy). É mais barato, mas registros feitos depois do último
+# backup podem se perder se o serviço reiniciar antes do próximo
+# ciclo — ajuste BACKUP_INTERVALO_HORAS (padrão 6h) conforme o volume
+# de registros. Lembre de rodar `pip install boto3` (adicione ao
+# requirements.txt) para essa opção funcionar.
+# ---------------------------------------------------------------------

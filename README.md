@@ -71,7 +71,9 @@ Acesse `http://localhost:5000` (tela de registro) e
 | `BACKUP_DIR` | `backups/` | Pasta onde os backups são salvos |
 | `BACKUP_MANTER_ULTIMOS` | `30` | Quantos backups recentes manter |
 | `BACKUP_TOKEN` | (vazio) | Se definido, habilita `POST /backup/executar` |
-| `BACKUP_S3_BUCKET` | (vazio) | Se definido, envia backups também para um bucket S3/compatível (requer `pip install boto3`) |
+| `BACKUP_S3_BUCKET` | (vazio) | Se definido, envia backups para um bucket S3/compatível e permite a restauração automática na inicialização (requer `pip install boto3`) |
+| `BACKUP_AUTOMATICO` | `false` | Se `true`, roda o backup periodicamente em segundo plano dentro do próprio app (sem Cron Job separado) |
+| `BACKUP_INTERVALO_HORAS` | `6` | Intervalo entre backups automáticos, quando `BACKUP_AUTOMATICO=true` |
 | `PORT` | `5000` | Porta usada por `wsgi.py` em execução direta |
 
 ## ⚠️ Atenção: persistência do SQLite na nuvem
@@ -79,17 +81,40 @@ Acesse `http://localhost:5000` (tela de registro) e
 Tanto Render quanto Railway usam **sistema de arquivos efêmero** por
 padrão: a cada novo deploy (ou reinício do container), tudo que foi
 gravado em disco — incluindo o arquivo `.db` — é apagado, a menos que
-você configure um **disco/volume persistente**.
+você use um dos dois caminhos abaixo. Escolha um deles antes de ir
+para produção.
 
-- **Render:** adicione um "Disk" ao serviço (recurso pago, a partir do
-  plano Starter) e aponte `DATABASE_PATH`/`BACKUP_DIR` para dentro
-  dele. O `render.yaml` incluso já faz isso (monta em `/var/data`).
+### Opção A — Disco persistente (mais robusta, plano pago)
+
+- **Render:** adicione um "Disk" ao serviço (a partir do plano
+  Starter) e aponte `DATABASE_PATH`/`BACKUP_DIR` para dentro dele. O
+  `render.yaml` incluso já faz isso (monta em `/var/data`).
 - **Railway:** crie um "Volume" no serviço e aponte as mesmas
   variáveis para o caminho montado (ex.: `/data`).
+- Não há janela de perda de dados: o arquivo nunca é apagado entre
+  deploys.
 
-Por isso a rotina de **backup automático** (próxima seção) é
-importante mesmo com disco persistente — ela protege contra exclusão
-acidental do disco, não apenas contra deploys.
+### Opção B — Plano gratuito, com backup + restauração automática no S3
+
+Se não quiser pagar por disco, defina `BACKUP_AUTOMATICO=true` e
+`BACKUP_S3_BUCKET` (veja tabela de variáveis abaixo). Com isso:
+
+1. A própria aplicação roda o backup periodicamente em segundo plano
+   (thread interna, sem precisar de Cron Job separado) e envia para o
+   S3 (ou compatível: Cloudflare R2, Backblaze B2).
+2. Ao subir num disco vazio (ex.: logo após um redeploy), a aplicação
+   **restaura automaticamente** o backup mais recente do S3 antes de
+   criar um banco novo — os registros anteriores voltam sozinhos.
+3. **Risco residual:** registros feitos *depois* do último backup e
+   *antes* de uma queda/redeploy podem se perder. Ajuste
+   `BACKUP_INTERVALO_HORAS` (padrão 6h) para reduzir essa janela
+   conforme o volume de registros da fábrica.
+4. Requer `pip install boto3` (não incluído por padrão no
+   `requirements.txt`, para não obrigar quem não usa essa opção).
+
+Em qualquer uma das opções, a rotina de backup (próxima seção)
+continua útil como proteção extra contra exclusão acidental de dados,
+não apenas contra deploys.
 
 ## Backup automático
 
@@ -99,7 +124,10 @@ O script `backup.py`:
 2. Exporta os dados também em CSV.
 3. Mantém apenas os últimos `BACKUP_MANTER_ULTIMOS` backups (rotação).
 4. Se `BACKUP_S3_BUCKET` estiver definido, também envia os arquivos
-   para um bucket S3 (ou compatível: Cloudflare R2, Backblaze B2etc.).
+   para um bucket S3 (ou compatível: Cloudflare R2, Backblaze B2).
+5. Se o app subir com `DATABASE_PATH` inexistente e `BACKUP_S3_BUCKET`
+   definido, restaura sozinho o backup `.db` mais recente do S3 antes
+   de criar um banco vazio (ver Opção B acima).
 
 Rodar manualmente:
 
@@ -109,9 +137,14 @@ python backup.py
 
 **Como agendar:**
 
-- **Render:** crie um "Cron Job" separado no mesmo projeto, apontando
-  para este repositório, com o comando `python backup.py`. Configure o
-  mesmo `DATABASE_PATH`/`BACKUP_DIR` do serviço web.
+- **Sem custo extra, dentro do próprio app:** defina
+  `BACKUP_AUTOMATICO=true` — uma thread interna roda o backup a cada
+  `BACKUP_INTERVALO_HORAS` (padrão 6h) enquanto a aplicação estiver no
+  ar. É a opção usada na Opção B acima.
+- **Render (Cron Job dedicado):** crie um "Cron Job" separado no mesmo
+  projeto, apontando para este repositório, com o comando
+  `python backup.py`. Configure o mesmo `DATABASE_PATH`/`BACKUP_DIR`
+  do serviço web.
 - **Railway:** crie um serviço com "Cron Schedule" e o mesmo comando.
 - **Qualquer host (alternativa via HTTP):** defina `BACKUP_TOKEN` e
   use um cron externo (ex. cron-job.org, GitHub Actions agendado) para
@@ -120,6 +153,12 @@ python backup.py
   curl -X POST https://seu-app.onrender.com/backup/executar \
        -H "X-Backup-Token: SEU_TOKEN"
   ```
+
+> Rodando com mais de 1 worker do gunicorn, cada worker abriria sua
+> própria thread de backup automático (redundante, mas inofensivo).
+> Para esta aplicação (SQLite, baixo volume) o padrão de 1 worker do
+> `Procfile` já é o recomendado — evite aumentar `--workers` sem
+> migrar para um banco que suporte mais concorrência.
 
 ## Deploy
 
