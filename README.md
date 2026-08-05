@@ -162,23 +162,43 @@ python backup.py
 
 ## Deploy
 
-### Render
-1. Suba este repositório no GitHub.
-2. No Render, "New +" → "Blueprint" → selecione o repositório (usa o
-   `render.yaml` incluso automaticamente), **ou** crie manualmente um
-   "Web Service" com:
-   - Build command: `pip install -r requirements.txt`
-   - Start command: `gunicorn wsgi:app`
-3. Configure as variáveis de ambiente (veja tabela acima).
-4. Adicione um Disk se quiser persistência (ver seção acima).
+### Render (recomendado — já tem `render.yaml` pronto)
 
-### Railway
-1. Suba este repositório no GitHub.
-2. No Railway, "New Project" → "Deploy from GitHub repo".
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/qualidadeparaforms-web/temperaturas)
+
+1. Clique no botão acima (leva à tela de login/criação de conta do
+   Render, se ainda não tiver uma).
+2. O Render lê o `render.yaml` deste repositório sozinho e já propõe:
+   um Web Service (`gunicorn wsgi:app`) com um Disk persistente
+   montado em `/var/data` e `SECRET_KEY`/`BACKUP_TOKEN` gerados
+   automaticamente. Confirme e clique em "Apply" — a build leva
+   1-2 minutos.
+3. Esse plano (`starter`, por causa do Disk) é pago. Se quiser testar
+   de graça primeiro, edite o `render.yaml` antes de clicar no botão
+   (ou os campos na tela do Render) seguindo a "Opção B" comentada no
+   próprio arquivo — remove o Disk e usa backup/restore automático via
+   S3 em vez de disco persistente.
+4. Ao terminar, o Render mostra a URL pública (algo como
+   `https://temperaturas-app.onrender.com`) — abra essa URL no tablet.
+
+**Sem passar pelo botão:** "New +" → "Blueprint" → selecione o
+repositório, **ou** crie manualmente um "Web Service" com Build
+command `pip install -r requirements.txt` e Start command
+`gunicorn wsgi:app`.
+
+### Railway (alternativa)
+1. Suba este repositório no GitHub (já está).
+2. No Railway, "New Project" → "Deploy from GitHub repo" → selecione
+   `qualidadeparaforms-web/temperaturas`.
 3. O Railway detecta o `Procfile`/`railway.json` e usa
-   `gunicorn wsgi:app` como comando de start.
-4. Adicione um Volume para persistência e configure as variáveis de
-   ambiente.
+   `gunicorn wsgi:app` como comando de start automaticamente.
+4. Configure as variáveis de ambiente (veja tabela acima) na aba
+   "Variables" do serviço.
+5. Adicione um Volume (aba "Volumes") se quiser persistência, ou use
+   `BACKUP_AUTOMATICO=true` + `BACKUP_S3_BUCKET` (Opção B) sem custo
+   extra de disco.
+6. O Railway gera a URL pública em "Settings" → "Networking" →
+   "Generate Domain".
 
 ## Telas
 
