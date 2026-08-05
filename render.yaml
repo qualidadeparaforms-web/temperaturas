@@ -2,37 +2,54 @@
 # Em "New +" > "Blueprint", aponte para este repositório e o Render
 # lerá este arquivo automaticamente.
 #
-# Este arquivo já vem configurado com a opção mais robusta: um Disk
-# persistente (exige plano pago Starter ou superior). Se preferir
-# rodar no plano Free (sem disco), veja a alternativa comentada no
-# final deste arquivo e no README.md ("Persistência do SQLite").
+# Configuração atual: plano FREE, sem cartão de crédito e sem disco
+# pago — ideal para testar o protótipo antes de decidir investir.
+#
+# Limitações do plano Free (aceitáveis para um teste):
+# - O serviço "dorme" após 15 min sem acesso e demora ~1 min para
+#   acordar no próximo acesso.
+# - Não tem disco persistente: a cada novo deploy o banco de dados
+#   local começa vazio (os registros anteriores são perdidos, a menos
+#   que você configure a Opção B comentada no final deste arquivo).
+#
+# Quando for para uso real na fábrica, troque para a Opção A
+# (comentada abaixo) — Disk persistente, sem esse risco, ~US$7,25/mês.
 services:
   - type: web
     name: temperaturas-app
     runtime: python
-    plan: starter
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn wsgi:app
     envVars:
       - key: SECRET_KEY
         generateValue: true
-      - key: DATABASE_PATH
-        value: /var/data/temperaturas.db
-      - key: BACKUP_DIR
-        value: /var/data/backups
       - key: BACKUP_TOKEN
         generateValue: true
-    disk:
-      name: dados
-      mountPath: /var/data
-      sizeGB: 1
 
 # ---------------------------------------------------------------------
-# ALTERNATIVA SEM DISCO PAGO (plano Free do Render ou similar):
-# remova o bloco "disk:" acima e troque DATABASE_PATH/BACKUP_DIR pelo
-# padrão do projeto (não precisam ser definidos), e adicione:
+# OPÇÃO A — DISCO PERSISTENTE (recomendado para uso real, plano pago):
+# troque "plan: free" por "plan: starter" no serviço acima, adicione
+# aos envVars:
 #
-#     envVars:
+#       - key: DATABASE_PATH
+#         value: /var/data/temperaturas.db
+#       - key: BACKUP_DIR
+#         value: /var/data/backups
+#
+# e adicione ao serviço (mesmo nível de "envVars"):
+#
+#     disk:
+#       name: dados
+#       mountPath: /var/data
+#       sizeGB: 1
+#
+# Sem janela de perda de dados entre deploys. Custo aproximado:
+# US$7/mês (plano Starter) + US$0,25/mês (1GB de disco).
+# ---------------------------------------------------------------------
+# OPÇÃO B — GRATUITO, COM BACKUP/RESTAURAÇÃO AUTOMÁTICA NO S3:
+# mantendo "plan: free" acima, adicione aos envVars:
+#
 #       - key: BACKUP_AUTOMATICO
 #         value: "true"
 #       - key: BACKUP_S3_BUCKET
@@ -42,12 +59,12 @@ services:
 #       - key: AWS_SECRET_ACCESS_KEY
 #         sync: false
 #
-# Com isso a própria aplicação faz backup periódico para o S3 (ou
-# compatível: Cloudflare R2, Backblaze B2) e restaura automaticamente
-# o último backup sempre que subir num disco vazio (ex.: após um
-# redeploy). É mais barato, mas registros feitos depois do último
-# backup podem se perder se o serviço reiniciar antes do próximo
-# ciclo — ajuste BACKUP_INTERVALO_HORAS (padrão 6h) conforme o volume
-# de registros. Lembre de rodar `pip install boto3` (adicione ao
-# requirements.txt) para essa opção funcionar.
+# A própria aplicação faz backup periódico para o S3 (ou compatível:
+# Cloudflare R2, Backblaze B2 — ambos com camada gratuita) e restaura
+# automaticamente o último backup sempre que subir num disco vazio.
+# Registros feitos depois do último backup podem se perder se o
+# serviço reiniciar antes do próximo ciclo — ajuste
+# BACKUP_INTERVALO_HORAS (padrão 6h) conforme o volume de registros.
+# Lembre de adicionar "boto3" ao requirements.txt para essa opção
+# funcionar.
 # ---------------------------------------------------------------------
