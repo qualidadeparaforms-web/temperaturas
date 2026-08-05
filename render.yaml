@@ -1,0 +1,28 @@
+# Blueprint de deploy para o Render (https://render.com).
+# Em "New +" > "Blueprint", aponte para este repositório e o Render
+# lerá este arquivo automaticamente.
+#
+# IMPORTANTE: o disco persistente (`disk:`) exige um plano pago
+# (Starter ou superior) — o plano Free do Render não suporta discos,
+# e sem disco persistente o arquivo SQLite é apagado a cada novo
+# deploy. Veja o README.md para alternativas.
+services:
+  - type: web
+    name: temperaturas-app
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn wsgi:app
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_PATH
+        value: /var/data/temperaturas.db
+      - key: BACKUP_DIR
+        value: /var/data/backups
+      - key: BACKUP_TOKEN
+        generateValue: true
+    disk:
+      name: dados
+      mountPath: /var/data
+      sizeGB: 1

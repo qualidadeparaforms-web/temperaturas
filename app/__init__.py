@@ -18,9 +18,11 @@ def create_app(config_class: type = Config) -> Flask:
 
     from app.routes.registro import registro_bp
     from app.routes.dashboard import dashboard_bp
+    from app.routes.backup import backup_bp
 
     app.register_blueprint(registro_bp)
     app.register_blueprint(dashboard_bp)
+    app.register_blueprint(backup_bp)
 
     with app.app_context():
         db.create_all()
