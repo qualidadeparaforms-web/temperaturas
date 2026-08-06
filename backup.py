@@ -14,26 +14,34 @@ O script:
    disco indefinidamente.
 4. Opcionalmente, envia os arquivos para um bucket S3 (ou compatível,
    como Cloudflare R2 / Backblaze B2) se a variável de ambiente
-   BACKUP_S3_BUCKET estiver definida (e as credenciais AWS/boto3
-   configuradas). Requer `pip install boto3`.
+   BACKUP_S3_BUCKET estiver definida (e AWS_ACCESS_KEY_ID /
+   AWS_SECRET_ACCESS_KEY configuradas — e BACKUP_S3_ENDPOINT_URL para
+   serviços compatíveis que não sejam a AWS). boto3 já vem no
+   requirements.txt.
 
 COMO AGENDAR:
-- Render: crie um "Cron Job" apontando para este repositório com o
-  comando `python backup.py`, agendado (ex.: diariamente às 23h).
-- Railway: crie um serviço com "Cron Schedule" configurado e o mesmo
-  comando de início.
-- Alternativa (qualquer host): use o endpoint HTTP protegido
+- Automático a cada registro salvo (padrão, sem configurar nada além
+  de BACKUP_S3_BUCKET): toda vez que alguém salva uma temperatura em
+  /registrar, um backup roda em segundo plano (ver
+  app/routes/registro.py, `_agendar_backup_apos_registro`). É o que
+  protege o plano Free do Render, cujo disco é apagado toda vez que o
+  serviço "dorme" por inatividade (~15 min sem acesso) — não dá pra
+  esperar um ciclo periódico de horas em horas nesse caso.
+- Render/Railway com disco persistente: BACKUP_AUTOMATICO=true roda
+  esta rotina periodicamente em segundo plano dentro do próprio app
+  (ver app/__init__.py), a cada BACKUP_INTERVALO_HORAS — suficiente
+  quando o disco já não é apagado sozinho.
+- Cron Job dedicado: Render/Railway "Cron Job" / "Cron Schedule"
+  apontando para este repositório com o comando `python backup.py`.
+- Alternativa via HTTP (qualquer host): endpoint protegido
   POST /backup/executar (ver app/routes/backup.py) chamado por um
   serviço externo de cron (ex.: cron-job.org, GitHub Actions
   agendado) enviando o cabeçalho X-Backup-Token.
-- Alternativa sem Cron Job nenhum: defina BACKUP_AUTOMATICO=true e a
-  própria aplicação roda esta rotina periodicamente em segundo plano
-  (ver app/__init__.py). Combinado com BACKUP_S3_BUCKET, isso permite
-  rodar em planos SEM disco persistente (ex.: Render free): a cada
-  novo deploy o banco local começa vazio, mas é restaurado
-  automaticamente a partir do último backup no S3 (ver
-  `restaurar_ultimo_backup`), então os dados não se perdem — apenas
-  os registros feitos depois do último backup ficam em risco.
+
+Em qualquer um desses casos, se BACKUP_S3_BUCKET estiver configurado
+e o app subir com o banco local vazio (disco efêmero recém-criado),
+o último backup é restaurado sozinho antes de criar um banco novo —
+ver `restaurar_ultimo_backup`, chamada em app/__init__.py.
 """
 
 import csv
@@ -87,12 +95,24 @@ PREFIXO_S3 = "backups-temperaturas/"
 
 
 def _cliente_s3():
-    """Retorna um cliente boto3, ou None se a biblioteca não estiver instalada."""
+    """Retorna um cliente boto3, ou None se a biblioteca não estiver instalada.
+
+    Suporta serviços compatíveis com S3 além da AWS (ex.: Cloudflare
+    R2, Backblaze B2) via BACKUP_S3_ENDPOINT_URL. A AWS de fato não
+    precisa dessa variável — só os compatíveis.
+    """
     try:
         import boto3
     except ImportError:
         return None
-    return boto3.client("s3")
+
+    endpoint = os.environ.get("BACKUP_S3_ENDPOINT_URL")
+    kwargs = {}
+    if endpoint:
+        kwargs["endpoint_url"] = endpoint
+        # R2 e outros compatíveis costumam usar "auto" como região.
+        kwargs["region_name"] = os.environ.get("AWS_DEFAULT_REGION", "auto")
+    return boto3.client("s3", **kwargs)
 
 
 def _upload_s3(caminho_arquivo: str) -> None:
@@ -108,6 +128,34 @@ def _upload_s3(caminho_arquivo: str) -> None:
     chave = f"{PREFIXO_S3}{os.path.basename(caminho_arquivo)}"
     s3.upload_file(caminho_arquivo, bucket, chave)
     print(f"Backup enviado para s3://{bucket}/{chave}")
+
+
+def _podar_s3_antigos(manter: int) -> None:
+    """Remove do bucket os backups mais antigos, mantendo só os últimos.
+
+    Sem isso, rodar um backup a cada registro salvo (ver
+    app/routes/registro.py) acumularia um objeto novo no bucket a cada
+    registro, para sempre.
+    """
+    bucket = os.environ.get("BACKUP_S3_BUCKET")
+    if not bucket:
+        return
+    s3 = _cliente_s3()
+    if s3 is None:
+        return
+
+    try:
+        resposta = s3.list_objects_v2(Bucket=bucket, Prefix=PREFIXO_S3)
+    except Exception as exc:
+        print(f"Não foi possível listar backups no S3 para poda: {exc}")
+        return
+
+    objetos = sorted(resposta.get("Contents", []), key=lambda obj: obj["LastModified"], reverse=True)
+    for antigo in objetos[manter:]:
+        try:
+            s3.delete_object(Bucket=bucket, Key=antigo["Key"])
+        except Exception as exc:
+            print(f"Falha ao remover backup antigo do S3 ({antigo['Key']}): {exc}")
 
 
 def restaurar_ultimo_backup() -> bool:
@@ -157,7 +205,10 @@ def restaurar_ultimo_backup() -> bool:
 
 
 def executar_backup() -> dict:
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # Microssegundos incluídos de propósito: com backup disparado a cada
+    # registro salvo, dois backups podem cair no mesmo segundo e colidir
+    # no mesmo nome de arquivo (sobrescrevendo um ao outro) sem isso.
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     origem = Config.DATABASE_PATH
     destino_dir = Config.BACKUP_DIR
 
@@ -173,6 +224,7 @@ def executar_backup() -> dict:
 
     _upload_s3(caminho_db)
     _upload_s3(caminho_csv)
+    _podar_s3_antigos(manter=Config.BACKUP_MANTER_ULTIMOS)
 
     mensagem = f"Backup concluído: {caminho_db} e {caminho_csv}"
     print(mensagem)

@@ -71,8 +71,10 @@ Acesse `http://localhost:5000` (tela de registro) e
 | `BACKUP_DIR` | `backups/` | Pasta onde os backups são salvos |
 | `BACKUP_MANTER_ULTIMOS` | `30` | Quantos backups recentes manter |
 | `BACKUP_TOKEN` | (vazio) | Se definido, habilita `POST /backup/executar` |
-| `BACKUP_S3_BUCKET` | (vazio) | Se definido, envia backups para um bucket S3/compatível e permite a restauração automática na inicialização (requer `pip install boto3`) |
-| `BACKUP_AUTOMATICO` | `false` | Se `true`, roda o backup periodicamente em segundo plano dentro do próprio app (sem Cron Job separado) |
+| `BACKUP_S3_BUCKET` | (vazio) | Se definido, faz backup a cada registro salvo para um bucket S3/compatível e restaura automaticamente na inicialização |
+| `BACKUP_S3_ENDPOINT_URL` | (vazio) | Endpoint do serviço S3-compatível (ex.: Cloudflare R2). Não definir para AWS S3 de verdade |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | (vazio) | Credenciais do bucket (S3/R2/compatível) |
+| `BACKUP_AUTOMATICO` | `false` | Se `true`, roda o backup periodicamente em segundo plano além do backup por registro (reforço extra, útil com disco persistente) |
 | `BACKUP_INTERVALO_HORAS` | `6` | Intervalo entre backups automáticos, quando `BACKUP_AUTOMATICO=true` |
 | `PORT` | `5000` | Porta usada por `wsgi.py` em execução direta |
 
@@ -96,21 +98,56 @@ para produção.
 
 ### Opção B — Plano gratuito, com backup + restauração automática no S3
 
-Se não quiser pagar por disco, defina `BACKUP_AUTOMATICO=true` e
-`BACKUP_S3_BUCKET` (veja tabela de variáveis abaixo). Com isso:
+**Atenção com o plano Free do Render especificamente:** o disco não é
+apagado só em redeploys — é apagado **toda vez que o serviço "dorme"
+por inatividade** (~15 min sem acesso), que é bem mais frequente. Por
+isso, nessa opção, o backup roda **a cada registro salvo** (não só
+periodicamente) — é o único jeito de garantir que o registro sobreviva
+até o próximo "sono" do serviço.
 
-1. A própria aplicação roda o backup periodicamente em segundo plano
-   (thread interna, sem precisar de Cron Job separado) e envia para o
-   S3 (ou compatível: Cloudflare R2, Backblaze B2).
-2. Ao subir num disco vazio (ex.: logo após um redeploy), a aplicação
-   **restaura automaticamente** o backup mais recente do S3 antes de
-   criar um banco novo — os registros anteriores voltam sozinhos.
-3. **Risco residual:** registros feitos *depois* do último backup e
-   *antes* de uma queda/redeploy podem se perder. Ajuste
-   `BACKUP_INTERVALO_HORAS` (padrão 6h) para reduzir essa janela
-   conforme o volume de registros da fábrica.
-4. Requer `pip install boto3` (não incluído por padrão no
-   `requirements.txt`, para não obrigar quem não usa essa opção).
+Basta definir `BACKUP_S3_BUCKET` (e as credenciais — veja tabela de
+variáveis abaixo). Com isso:
+
+1. Toda vez que alguém salva um registro em `/registrar`, um backup
+   roda em segundo plano e sobe para o S3 (ou compatível: Cloudflare
+   R2, Backblaze B2) — sem atrasar a resposta pro usuário.
+2. Ao subir num disco vazio (ex.: logo após o serviço "dormir" e
+   acordar, ou um redeploy), a aplicação **restaura automaticamente**
+   o backup mais recente do S3 antes de criar um banco novo — os
+   registros anteriores voltam sozinhos.
+3. **Risco residual:** só o registro que está sendo salvo *no exato
+   momento* de uma queda tem chance de se perder — o backup desse
+   registro específico pode não ter terminado de subir ainda. Na
+   prática, para o ritmo de uma fábrica, isso é raro.
+4. `BACKUP_AUTOMATICO=true` (+ `BACKUP_INTERVALO_HORAS`) continua
+   disponível como reforço periódico adicional, mas em planos Free não
+   é a defesa principal — o disco costuma dormir antes do intervalo
+   periódico chegar.
+5. `boto3` já vem no `requirements.txt`.
+
+#### Passo a passo com Cloudflare R2 (gratuito, sem cartão de crédito)
+
+1. Crie uma conta em [dash.cloudflare.com](https://dash.cloudflare.com/sign-up)
+   (gratuita).
+2. No menu lateral, vá em **R2 Object Storage** → **Create bucket**.
+   Dê um nome (ex.: `temperaturas-backup`) e crie.
+3. Em **R2** → **Manage API Tokens** → **Create API Token**, permissão
+   "Object Read & Write", escopo no bucket criado. Copie os 3 valores
+   que ele mostrar: **Access Key ID**, **Secret Access Key** e o
+   **Endpoint S3** (algo como
+   `https://<account_id>.r2.cloudflarestorage.com`).
+4. No serviço do Render (ou Railway), aba **Environment**, adicione:
+
+   | Variável | Valor |
+   |---|---|
+   | `BACKUP_S3_BUCKET` | o nome do bucket (ex.: `temperaturas-backup`) |
+   | `BACKUP_S3_ENDPOINT_URL` | o Endpoint S3 copiado no passo 3 |
+   | `AWS_ACCESS_KEY_ID` | o Access Key ID copiado |
+   | `AWS_SECRET_ACCESS_KEY` | o Secret Access Key copiado |
+
+5. Salve — o Render/Railway reinicia o serviço sozinho com as novas
+   variáveis. A partir daí, todo registro salvo já sobe backup
+   automaticamente.
 
 Em qualquer uma das opções, a rotina de backup (próxima seção)
 continua útil como proteção extra contra exclusão acidental de dados,

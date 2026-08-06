@@ -48,23 +48,22 @@ services:
 # US$7/mês (plano Starter) + US$0,25/mês (1GB de disco).
 # ---------------------------------------------------------------------
 # OPÇÃO B — GRATUITO, COM BACKUP/RESTAURAÇÃO AUTOMÁTICA NO S3:
-# mantendo "plan: free" acima, adicione aos envVars:
+# mantendo "plan: free" acima, adicione aos envVars (veja o passo a
+# passo completo com Cloudflare R2 no README.md):
 #
-#       - key: BACKUP_AUTOMATICO
-#         value: "true"
 #       - key: BACKUP_S3_BUCKET
 #         value: seu-bucket-aqui
+#       - key: BACKUP_S3_ENDPOINT_URL   # só p/ compatíveis (R2, B2); remova se for AWS S3 de fato
+#         value: https://<account_id>.r2.cloudflarestorage.com
 #       - key: AWS_ACCESS_KEY_ID
 #         sync: false
 #       - key: AWS_SECRET_ACCESS_KEY
 #         sync: false
 #
-# A própria aplicação faz backup periódico para o S3 (ou compatível:
-# Cloudflare R2, Backblaze B2 — ambos com camada gratuita) e restaura
-# automaticamente o último backup sempre que subir num disco vazio.
-# Registros feitos depois do último backup podem se perder se o
-# serviço reiniciar antes do próximo ciclo — ajuste
-# BACKUP_INTERVALO_HORAS (padrão 6h) conforme o volume de registros.
-# Lembre de adicionar "boto3" ao requirements.txt para essa opção
-# funcionar.
+# A aplicação faz backup a cada registro salvo (não só periodicamente
+# — necessário porque o plano Free apaga o disco a cada vez que
+# "dorme" por inatividade, não só em redeploys) para o S3 ou
+# compatível (Cloudflare R2, Backblaze B2 — ambos com camada
+# gratuita), e restaura automaticamente o backup mais recente sempre
+# que subir num disco vazio. boto3 já vem no requirements.txt.
 # ---------------------------------------------------------------------
