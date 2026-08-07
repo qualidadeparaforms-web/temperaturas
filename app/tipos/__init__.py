@@ -11,3 +11,4 @@ from app.tipos.base import (  # noqa: F401
 # tipo, crie o pacote app/tipos/<slug>/ e importe-o abaixo — veja o
 # README.md ("Como adicionar um novo tipo de registro").
 from app.tipos import temperatura  # noqa: E402,F401
+from app.tipos import temperatura_setor  # noqa: E402,F401

@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block titulo %}Registrar Temperatura de Setor{% endblock %}
+
+{% block conteudo %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <a href="{{ url_for('home.index') }}" class="link-voltar">← Escolher outro tipo de registro</a>
+    <form method="post" action="{{ url_for('temperatura_setor.registrar') }}" id="formRegistroSetor" autocomplete="off">
+
+      <h2 class="titulo-secao">1. Selecione o setor/câmara</h2>
+      <input
+        type="text"
+        id="buscaSetor"
+        class="form-control form-control-lg mb-2"
+        placeholder="🔍 Buscar setor..."
+        autocomplete="off">
+      <div class="row row-cols-1 row-cols-sm-2 g-2 mb-2" id="gradeSetores">
+        {% for setor in setores %}
+        <div class="col" data-nome="{{ setor }}">
+          <input type="radio" class="btn-check" name="setor" id="setor-{{ loop.index }}" value="{{ setor }}" required>
+          <label class="btn-etapa w-100" for="setor-{{ loop.index }}">{{ setor }}</label>
+        </div>
+        {% endfor %}
+      </div>
+      <p class="text-muted small d-none mb-4" id="semResultado">Nenhum setor encontrado — tente outro termo.</p>
+
+      <h2 class="titulo-secao">2. Temperatura (°C)</h2>
+      <div class="mb-4">
+        <input
+          type="number"
+          step="0.1"
+          inputmode="decimal"
+          name="temperatura"
+          id="campoTemperatura"
+          class="form-control form-control-temperatura text-center"
+          placeholder="0.0"
+          required>
+        <div class="form-text">Pode ser negativa (câmaras e túneis de congelamento).</div>
+      </div>
+
+      <h2 class="titulo-secao">3. Responsável</h2>
+      <div class="mb-4">
+        <input
+          type="text"
+          name="responsavel"
+          id="campoResponsavel"
+          class="form-control form-control-lg"
+          placeholder="Nome de quem está registrando"
+          list="listaResponsaveisSetor"
+          required>
+        <datalist id="listaResponsaveisSetor">
+          {% for nome in responsaveis %}
+          <option value="{{ nome }}">
+          {% endfor %}
+        </datalist>
+      </div>
+
+      <button type="submit" class="btn btn-salvar w-100">💾 SALVAR</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+  // Lembra o último responsável digitado (igual à tela de temperatura
+  // de processo, mas com chave própria — cada tipo é isolado).
+  (function () {
+    const campo = document.getElementById("campoResponsavel");
+    const salvo = localStorage.getItem("ultimoResponsavelSetor");
+    if (salvo) {
+      campo.value = salvo;
+    }
+    document.getElementById("formRegistroSetor").addEventListener("submit", function () {
+      localStorage.setItem("ultimoResponsavelSetor", campo.value);
+    });
+  })();
+
+  // Busca/filtro dos setores: são 17 opções, a busca facilita achar
+  // rápido no tablet sem precisar rolar a lista toda.
+  (function () {
+    const busca = document.getElementById("buscaSetor");
+    const itens = Array.from(document.querySelectorAll("#gradeSetores .col"));
+    const semResultado = document.getElementById("semResultado");
+
+    function normalizar(texto) {
+      return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    }
+
+    busca.addEventListener("input", function () {
+      const termo = normalizar(busca.value.trim());
+      let visiveis = 0;
+      itens.forEach(function (item) {
+        const combina = termo.length === 0 || normalizar(item.dataset.nome).includes(termo);
+        item.classList.toggle("d-none", !combina);
+        if (combina) visiveis += 1;
+      });
+      semResultado.classList.toggle("d-none", visiveis > 0);
+    });
+  })();
+</script>
+{% endblock %}
