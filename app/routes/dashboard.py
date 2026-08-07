@@ -1,21 +1,16 @@
 from datetime import date, datetime, timedelta
 from io import BytesIO
 
-from flask import Blueprint, jsonify, render_template, request, send_file
+from flask import Blueprint, redirect, render_template, request, send_file, url_for
 from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font, PatternFill
 
-from app.models import ETAPAS, RegistroTemperatura
+from app.tipos import TIPOS_REGISTRO, obter_tipo
 
 dashboard_bp = Blueprint("dashboard", __name__)
 
-PERIODOS_VALIDOS = {"dia", "semana", "mes", "personalizado"}
 
-
-def periodo_para_datas(periodo: str, data_inicio: str | None = None, data_fim: str | None = None):
-    """Converte o filtro de período em um intervalo (inicio, fim), inclusive."""
+def _periodo_para_datas(periodo, data_inicio=None, data_fim=None):
     hoje = date.today()
-
     if periodo == "dia":
         return hoje, hoje
     if periodo == "semana":
@@ -30,117 +25,92 @@ def periodo_para_datas(periodo: str, data_inicio: str | None = None, data_fim: s
             )
         except ValueError:
             pass
-
-    # Padrão: última semana.
     return hoje - timedelta(days=6), hoje
-
-
-def buscar_registros(periodo: str, etapa: str, data_inicio: str | None = None, data_fim: str | None = None):
-    inicio, fim = periodo_para_datas(periodo, data_inicio, data_fim)
-    query = RegistroTemperatura.query.filter(
-        RegistroTemperatura.data >= inicio, RegistroTemperatura.data <= fim
-    )
-    if etapa and etapa != "todas":
-        query = query.filter(RegistroTemperatura.etapa == etapa)
-
-    registros = query.order_by(
-        RegistroTemperatura.data.asc(), RegistroTemperatura.horario.asc()
-    ).all()
-    return registros, inicio, fim
-
-
-def _parametros_filtro():
-    return {
-        "periodo": request.args.get("periodo", "semana"),
-        "etapa": request.args.get("etapa", "todas"),
-        "data_inicio": request.args.get("data_inicio"),
-        "data_fim": request.args.get("data_fim"),
-    }
 
 
 @dashboard_bp.route("/dashboard")
 def dashboard():
-    return render_template("dashboard.html", etapas=ETAPAS)
+    """Painel principal: cada tipo de registro tem seu próprio painel
+    completo (gráfico, cartões, filtros específicos). Esta rota só
+    decide para onde mandar o usuário:
+
+    - Um `tipo` específico pedido na URL (?tipo=<slug>) → painel
+      daquele tipo.
+    - Só existe um tipo cadastrado → vai direto pra ele (hoje é o caso:
+      só "Temperatura de Processo" existe, então /dashboard se
+      comporta exatamente como antes desta reestruturação).
+    - Dois ou mais tipos, sem um `tipo` específico pedido → visão
+      combinada (cartões de contagem + tabela unificada de todos os
+      tipos).
+    """
+    tipo_pedido = request.args.get("tipo")
+
+    if tipo_pedido and tipo_pedido != "todos":
+        tipo = obter_tipo(tipo_pedido)
+        if tipo:
+            outros_params = {k: v for k, v in request.args.items() if k != "tipo"}
+            return redirect(url_for(f"{tipo.slug}_dashboard.index", **outros_params))
+
+    if tipo_pedido != "todos" and len(TIPOS_REGISTRO) == 1:
+        return redirect(url_for(f"{TIPOS_REGISTRO[0].slug}_dashboard.index"))
+
+    return _visao_combinada()
 
 
-@dashboard_bp.route("/api/registros")
-def api_registros():
-    filtros = _parametros_filtro()
-    registros, inicio, fim = buscar_registros(**filtros)
+def _visao_combinada():
+    periodo = request.args.get("periodo", "semana")
+    data_inicio = request.args.get("data_inicio")
+    data_fim = request.args.get("data_fim")
+    inicio, fim = _periodo_para_datas(periodo, data_inicio, data_fim)
 
-    total = len(registros)
-    fora_padrao = sum(1 for r in registros if not r.conforme)
-    conformes = total - fora_padrao
+    resumos = [
+        {"tipo": tipo, "total": tipo.contar(inicio, fim)} for tipo in TIPOS_REGISTRO
+    ]
 
-    return jsonify(
-        {
-            "registros": [r.to_dict() for r in registros],
-            "resumo": {
-                "total": total,
-                "conformes": conformes,
-                "fora_padrao": fora_padrao,
-                "percentual_conforme": round(conformes / total * 100, 1) if total else 100.0,
-            },
-            "periodo": {
-                "inicio": inicio.strftime("%d/%m/%Y"),
-                "fim": fim.strftime("%d/%m/%Y"),
-            },
-        }
+    linhas = []
+    for tipo in TIPOS_REGISTRO:
+        linhas.extend(tipo.linhas_combinadas(inicio, fim))
+    linhas.sort(key=lambda linha: linha["ordenacao"], reverse=True)
+
+    return render_template(
+        "dashboard_combinado.html",
+        tipos=TIPOS_REGISTRO,
+        resumos=resumos,
+        linhas=linhas,
+        periodo=periodo,
+        inicio=inicio,
+        fim=fim,
     )
 
 
 @dashboard_bp.route("/exportar")
 def exportar():
-    filtros = _parametros_filtro()
-    registros, inicio, fim = buscar_registros(**filtros)
+    """Exportação combinada: um `tipo` específico gera a planilha
+    daquele tipo (mesmo resultado de /dashboard/<tipo>/exportar);
+    "todos" (ou nenhum tipo pedido, havendo mais de um cadastrado)
+    gera um único arquivo com uma aba por tipo.
+    """
+    tipo_pedido = request.args.get("tipo", "todos")
+    periodo = request.args.get("periodo", "semana")
+    data_inicio = request.args.get("data_inicio")
+    data_fim = request.args.get("data_fim")
+    inicio, fim = _periodo_para_datas(periodo, data_inicio, data_fim)
+
+    if tipo_pedido != "todos":
+        tipo = obter_tipo(tipo_pedido)
+        if tipo:
+            return redirect(url_for(f"{tipo.slug}_dashboard.exportar", **request.args))
 
     wb = Workbook()
-    ws = wb.active
-    ws.title = "Registros de Temperatura"
-
-    colunas = ["Dia", "Horário", "Etapa", "Temperatura", "Responsável", "Conforme"]
-    ws.append(colunas)
-
-    cabecalho_preenchimento = PatternFill(start_color="1F3864", end_color="1F3864", fill_type="solid")
-    cabecalho_fonte = Font(color="FFFFFF", bold=True)
-    for indice in range(1, len(colunas) + 1):
-        celula = ws.cell(row=1, column=indice)
-        celula.fill = cabecalho_preenchimento
-        celula.font = cabecalho_fonte
-        celula.alignment = Alignment(horizontal="center")
-
-    preenchimento_fora_padrao = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
-    fonte_fora_padrao = Font(color="C00000", bold=True)
-
-    for registro in registros:
-        ws.append(
-            [
-                registro.data.strftime("%d/%m/%Y"),
-                registro.horario.strftime("%H:%M"),
-                registro.etapa,
-                registro.temperatura,
-                registro.responsavel,
-                "Sim" if registro.conforme else "Não",
-            ]
-        )
-        if not registro.conforme:
-            linha = ws.max_row
-            for indice in range(1, len(colunas) + 1):
-                celula = ws.cell(row=linha, column=indice)
-                celula.fill = preenchimento_fora_padrao
-                celula.font = fonte_fora_padrao
-
-    larguras = [12, 10, 14, 14, 24, 12]
-    for indice, largura in enumerate(larguras, start=1):
-        ws.column_dimensions[chr(64 + indice)].width = largura
+    del wb["Sheet"]
+    for tipo in TIPOS_REGISTRO:
+        tipo.adicionar_planilha(wb, inicio, fim, {})
 
     buffer = BytesIO()
     wb.save(buffer)
     buffer.seek(0)
 
-    nome_arquivo = (
-        f"registros_temperatura_{inicio.strftime('%Y%m%d')}_{fim.strftime('%Y%m%d')}.xlsx"
-    )
+    nome_arquivo = f"registros_{inicio.strftime('%Y%m%d')}_{fim.strftime('%Y%m%d')}.xlsx"
     return send_file(
         buffer,
         as_attachment=True,

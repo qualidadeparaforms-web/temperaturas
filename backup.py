@@ -1,5 +1,6 @@
 """
-Rotina de backup do banco de dados de registros de temperatura.
+Rotina de backup do banco de dados (todos os tipos de registro
+cadastrados em app/tipos — hoje só "Temperatura de Processo").
 
 USO MANUAL:
     python backup.py
@@ -21,9 +22,9 @@ O script:
 
 COMO AGENDAR:
 - Automático a cada registro salvo (padrão, sem configurar nada além
-  de BACKUP_S3_BUCKET): toda vez que alguém salva uma temperatura em
-  /registrar, um backup roda em segundo plano (ver
-  app/routes/registro.py, `_agendar_backup_apos_registro`). É o que
+  de BACKUP_S3_BUCKET): toda vez que alguém salva um registro (de
+  qualquer tipo), um backup roda em segundo plano (ver
+  app/backup_utils.py, `agendar_backup_apos_registro`). É o que
   protege o plano Free do Render, cujo disco é apagado toda vez que o
   serviço "dorme" por inatividade (~15 min sem acesso) — não dá pra
   esperar um ciclo periódico de horas em horas nesse caso.
@@ -64,31 +65,61 @@ def _backup_sqlite(origem: str, destino_dir: str, timestamp: str) -> str:
     return destino
 
 
-def _exportar_csv(origem: str, destino_dir: str, timestamp: str) -> str:
-    destino = os.path.join(destino_dir, f"temperaturas_{timestamp}.csv")
+def _exportar_csv(origem: str, destino_dir: str, timestamp: str) -> list:
+    """Exporta um CSV por tipo de registro cadastrado (ver app/tipos) —
+    hoje só "temperatura", mas cresce sozinho conforme novos tipos
+    forem adicionados ao registro (nenhuma mudança necessária aqui).
+    """
+    from app.tipos import TIPOS_REGISTRO
+
     con = sqlite3.connect(origem)
     cur = con.cursor()
-    cur.execute(
-        "SELECT id, data, horario, etapa, temperatura, responsavel "
-        "FROM registros_temperatura ORDER BY id"
-    )
-    linhas = cur.fetchall()
-    con.close()
+    caminhos = []
+    for tipo in TIPOS_REGISTRO:
+        # tipo.tabela/colunas_backup vêm do código-fonte (TipoRegistro),
+        # nunca de entrada externa — seguro compor a query assim.
+        colunas = tipo.colunas_backup
+        cur.execute(f"SELECT {', '.join(colunas)} FROM {tipo.tabela} ORDER BY id")
+        linhas = cur.fetchall()
 
-    with open(destino, "w", newline="", encoding="utf-8") as arquivo:
-        writer = csv.writer(arquivo)
-        writer.writerow(["id", "data", "horario", "etapa", "temperatura", "responsavel"])
-        writer.writerows(linhas)
-    return destino
+        destino = os.path.join(destino_dir, f"temperaturas_{timestamp}_{tipo.slug}.csv")
+        with open(destino, "w", newline="", encoding="utf-8") as arquivo:
+            writer = csv.writer(arquivo)
+            writer.writerow(colunas)
+            writer.writerows(linhas)
+        caminhos.append(destino)
+    con.close()
+    return caminhos
+
+
+def _timestamp_do_nome(nome_arquivo: str) -> str:
+    """Extrai o timestamp (data_hora_microssegundos) de um nome de
+    backup, seja o .db (`temperaturas_<ts>.db`) ou um .csv por tipo
+    (`temperaturas_<ts>_<slug>.csv`) — usado para agrupar os arquivos
+    de uma mesma rodada de backup na hora de podar os antigos.
+    """
+    base = nome_arquivo.rsplit(".", 1)[0]
+    partes = base.split("_")
+    return "_".join(partes[1:4])  # data, hora, microssegundos
 
 
 def _limpar_antigos(destino_dir: str, prefixo: str, manter: int) -> None:
+    """Mantém só as últimas `manter` RODADAS de backup (não arquivos).
+
+    Uma rodada gera vários arquivos (1 .db + 1 .csv por tipo
+    cadastrado) — contar arquivo por arquivo encolheria a retenção
+    real conforme mais tipos forem adicionados.
+    """
     arquivos = sorted(
         (f for f in os.listdir(destino_dir) if f.startswith(prefixo)),
         reverse=True,
     )
-    for antigo in arquivos[manter:]:
-        os.remove(os.path.join(destino_dir, antigo))
+    timestamps_em_ordem = list(dict.fromkeys(_timestamp_do_nome(f) for f in arquivos))
+    manter_timestamps = set(timestamps_em_ordem[:manter])
+
+    for arquivo in arquivos:
+        if _timestamp_do_nome(arquivo) not in manter_timestamps:
+            os.remove(os.path.join(destino_dir, arquivo))
 
 
 PREFIXO_S3 = "backups-temperaturas/"
@@ -131,10 +162,11 @@ def _upload_s3(caminho_arquivo: str) -> None:
 
 
 def _podar_s3_antigos(manter: int) -> None:
-    """Remove do bucket os backups mais antigos, mantendo só os últimos.
+    """Remove do bucket as RODADAS de backup mais antigas, mantendo só
+    as últimas (mesma lógica de _limpar_antigos, mas no bucket).
 
     Sem isso, rodar um backup a cada registro salvo (ver
-    app/routes/registro.py) acumularia um objeto novo no bucket a cada
+    app/backup_utils.py) acumularia objetos novos no bucket a cada
     registro, para sempre.
     """
     bucket = os.environ.get("BACKUP_S3_BUCKET")
@@ -150,12 +182,20 @@ def _podar_s3_antigos(manter: int) -> None:
         print(f"Não foi possível listar backups no S3 para poda: {exc}")
         return
 
-    objetos = sorted(resposta.get("Contents", []), key=lambda obj: obj["LastModified"], reverse=True)
-    for antigo in objetos[manter:]:
-        try:
-            s3.delete_object(Bucket=bucket, Key=antigo["Key"])
-        except Exception as exc:
-            print(f"Falha ao remover backup antigo do S3 ({antigo['Key']}): {exc}")
+    objetos = resposta.get("Contents", [])
+    objetos_ordenados = sorted(objetos, key=lambda obj: obj["LastModified"], reverse=True)
+    timestamps_em_ordem = list(
+        dict.fromkeys(_timestamp_do_nome(obj["Key"].rsplit("/", 1)[-1]) for obj in objetos_ordenados)
+    )
+    manter_timestamps = set(timestamps_em_ordem[:manter])
+
+    for obj in objetos_ordenados:
+        nome = obj["Key"].rsplit("/", 1)[-1]
+        if _timestamp_do_nome(nome) not in manter_timestamps:
+            try:
+                s3.delete_object(Bucket=bucket, Key=obj["Key"])
+            except Exception as exc:
+                print(f"Falha ao remover backup antigo do S3 ({obj['Key']}): {exc}")
 
 
 def restaurar_ultimo_backup() -> bool:
@@ -218,17 +258,19 @@ def executar_backup() -> dict:
         return {"ok": False, "mensagem": mensagem}
 
     caminho_db = _backup_sqlite(origem, destino_dir, timestamp)
-    caminho_csv = _exportar_csv(origem, destino_dir, timestamp)
+    caminhos_csv = _exportar_csv(origem, destino_dir, timestamp)
 
     _limpar_antigos(destino_dir, "temperaturas_", manter=Config.BACKUP_MANTER_ULTIMOS)
 
     _upload_s3(caminho_db)
-    _upload_s3(caminho_csv)
+    for caminho_csv in caminhos_csv:
+        _upload_s3(caminho_csv)
     _podar_s3_antigos(manter=Config.BACKUP_MANTER_ULTIMOS)
 
-    mensagem = f"Backup concluído: {caminho_db} e {caminho_csv}"
+    arquivos = [caminho_db] + caminhos_csv
+    mensagem = f"Backup concluído: {', '.join(arquivos)}"
     print(mensagem)
-    return {"ok": True, "mensagem": mensagem, "arquivos": [caminho_db, caminho_csv]}
+    return {"ok": True, "mensagem": mensagem, "arquivos": arquivos}
 
 
 if __name__ == "__main__":

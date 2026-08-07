@@ -6,6 +6,17 @@
 {% endblock %}
 
 {% block conteudo %}
+{% if tipos and tipos|length > 1 %}
+<div class="seletor-tipos mb-3">
+  {% for tipo in tipos %}
+  <a href="{{ url_for('dashboard.dashboard', tipo=tipo.slug) }}"
+     class="seletor-tipo-item {% if tipo.slug == 'temperatura' %}ativo{% endif %}">
+    {{ tipo.icone }} {{ tipo.nome }}
+  </a>
+  {% endfor %}
+  <a href="{{ url_for('dashboard.dashboard', tipo='todos') }}" class="seletor-tipo-item">📋 Todos</a>
+</div>
+{% endif %}
 <div class="row g-3 align-items-end mb-3" id="formFiltros">
   <div class="col-6 col-md-2">
     <label class="form-label fw-bold">Período</label>
@@ -91,5 +102,5 @@
 {% endblock %}
 
 {% block scripts_extra %}
-<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='tipos/temperatura/dashboard.js') }}"></script>
 {% endblock %}

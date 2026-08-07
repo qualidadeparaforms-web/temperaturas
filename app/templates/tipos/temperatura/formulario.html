@@ -4,7 +4,8 @@
 {% block conteudo %}
 <div class="row justify-content-center">
   <div class="col-12 col-md-8 col-lg-6">
-    <form method="post" action="{{ url_for('registro.registrar') }}" id="formRegistro" autocomplete="off">
+    <a href="{{ url_for('home.index') }}" class="link-voltar">← Escolher outro tipo de registro</a>
+    <form method="post" action="{{ url_for('temperatura.registrar') }}" id="formRegistro" autocomplete="off">
 
       <h2 class="titulo-secao">1. Selecione a etapa</h2>
       <div class="row row-cols-2 row-cols-md-3 g-2 mb-4" id="gradeEtapas">

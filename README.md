@@ -1,20 +1,26 @@
-# Controle de Temperatura — Registro de Processo
+# Registros — Digitalização de planilhas de qualidade
 
-Sistema web simples para digitalizar o registro de temperatura de
-processo em uma indústria de alimentos (carnes). Pensado para uso em
-tablets/celulares no chão de fábrica (tela de registro) e em
-computador para acompanhamento (painel).
+Sistema web para digitalizar o preenchimento de planilhas/formulários
+de controle de qualidade numa indústria de alimentos (carnes).
+Pensado para uso em tablets/celulares no chão de fábrica (tela de
+registro) e em computador para acompanhamento (painel).
+
+O sistema suporta **múltiplos tipos de registro** (ex.: Temperatura
+de Processo, e outros que forem adicionados depois) — uma tela
+inicial deixa o usuário escolher qual planilha quer preencher. Veja
+["Arquitetura: tipos de registro"](#arquitetura-tipos-de-registro)
+para como adicionar um novo tipo.
 
 ## Stack
 
 - **Backend:** Python + Flask
-- **Banco de dados:** SQLite (arquivo único)
+- **Banco de dados:** SQLite (arquivo único, uma tabela por tipo de registro)
 - **Frontend:** HTML + Bootstrap 5 (botões grandes, poucos campos)
 - **Gráficos:** Chart.js
 - **Exportação:** Excel (.xlsx) via openpyxl
 - **Deploy:** preparado para Render ou Railway
 
-## Regras de negócio
+## Regras de negócio — Temperatura de Processo
 
 | Etapa | Limite (conforme até) |
 |---|---|
@@ -23,22 +29,34 @@ computador para acompanhamento (painel).
 
 Registros acima do limite mostram **"⚠️ Fora do padrão"** na hora, mas
 são salvos normalmente — o sistema nunca bloqueia o registro, apenas
-avisa.
+avisa. (Cada tipo de registro define suas próprias regras — as de
+outros tipos ficam documentadas junto do respectivo tipo.)
 
 ## Estrutura do projeto
 
 ```
 temperaturas/
 ├── app/
-│   ├── __init__.py        # application factory
-│   ├── extensions.py      # instância do SQLAlchemy
-│   ├── models.py          # modelo RegistroTemperatura + regras de negócio
+│   ├── __init__.py           # application factory
+│   ├── extensions.py         # instância do SQLAlchemy
+│   ├── backup_utils.py       # dispara backup em segundo plano após salvar (todos os tipos)
 │   ├── routes/
-│   │   ├── registro.py    # tela de registro (tablet)
-│   │   ├── dashboard.py   # painel, API de dados e exportação Excel
-│   │   └── backup.py      # endpoint HTTP protegido para disparar backup
+│   │   ├── home.py           # tela inicial — grade com um botão por tipo de registro
+│   │   ├── dashboard.py      # painel: decide entre o painel de um tipo específico ou a visão combinada
+│   │   └── backup.py         # endpoint HTTP protegido para disparar backup
+│   ├── tipos/                # um pacote por tipo de registro — ver seção abaixo
+│   │   ├── base.py           # TipoRegistro (dataclass) + registro central
+│   │   └── temperatura/      # tipo "Temperatura de Processo"
+│   │       ├── __init__.py    # monta o TipoRegistro e se cadastra
+│   │       ├── models.py       # modelo RegistroTemperatura + regras de negócio
+│   │       ├── formulario.py    # tela de registro (tablet)
+│   │       └── dashboard.py      # painel, API de dados e exportação Excel deste tipo
 │   ├── templates/
+│   │   ├── home.html          # tela inicial
+│   │   ├── dashboard_combinado.html  # visão combinada (2+ tipos)
+│   │   └── tipos/temperatura/  # templates específicos do tipo
 │   └── static/
+│       └── tipos/temperatura/   # JS/CSS específicos do tipo
 ├── backup.py               # script de backup (rodar via cron)
 ├── config.py
 ├── wsgi.py                 # ponto de entrada (gunicorn wsgi:app)
@@ -49,6 +67,61 @@ temperaturas/
 └── .python-version
 ```
 
+## Arquitetura: tipos de registro
+
+Cada "planilha" (Temperatura de Processo, e futuras) é um **tipo de
+registro** — um pacote isolado em `app/tipos/<slug>/` com sua própria
+tabela, formulário e painel. A tela inicial (`/`) e o painel
+(`/dashboard`) são genéricos: eles descobrem os tipos disponíveis
+automaticamente a partir de um registro central
+(`app/tipos/base.py`), sem precisar saber de antemão quais tipos
+existem.
+
+### Como adicionar um novo tipo de registro
+
+Usando `app/tipos/temperatura/` como referência, para um novo tipo
+`<slug>` (ex.: `limpeza`):
+
+1. **Crie o pacote** `app/tipos/<slug>/` com 4 arquivos:
+   - `models.py` — o modelo SQLAlchemy (`__tablename__` próprio) e as
+     regras de validação/conformidade específicas deste tipo.
+   - `formulario.py` — um Blueprint **chamado exatamente `<slug>`**,
+     com `url_prefix="/<slug>"`, uma rota `""` (GET) chamada `index`
+     e uma rota de submissão (ex. `/registrar`, POST). Depois de
+     salvar, chame `app.backup_utils.agendar_backup_apos_registro()`.
+   - `dashboard.py` — um Blueprint **chamado `<slug>_dashboard`**,
+     com `url_prefix="/dashboard/<slug>"` e rota `""` (GET) chamada
+     `index` com o painel completo deste tipo (siga
+     `app/tipos/temperatura/dashboard.py` como modelo: filtros, API
+     JSON, exportação Excel). Também exponha três funções usadas pela
+     visão combinada de vários tipos:
+     - `contar(inicio, fim) -> int`
+     - `linhas_combinadas(inicio, fim) -> list[dict]` — cada dict:
+       `{"tipo", "icone", "data", "horario", "resumo", "conforme", "ordenacao"}`
+       (`conforme` pode ser `None` se o tipo não tiver esse conceito)
+     - `adicionar_planilha(workbook, inicio, fim, filtros_extra)` —
+       acrescenta uma aba ao workbook (`wb.create_sheet(...)`, nunca
+       assuma que é a única aba)
+   - `__init__.py` — monta um `TipoRegistro` (slug, nome de exibição,
+     ícone/emoji, nome da tabela SQL, colunas para o backup CSV, e as
+     3 funções acima) e chama `registrar_tipo(TIPO, formulario_bp, dashboard_bp)`.
+
+2. **Registre o pacote**: adicione `from app.tipos import <slug>` no
+   final de `app/tipos/__init__.py`.
+
+3. **Templates**: crie `app/templates/tipos/<slug>/formulario.html` e
+   `dashboard.html`, estendendo `base.html` (copie os de temperatura
+   como ponto de partida). Estáticos específicos (JS/CSS) vão em
+   `app/static/tipos/<slug>/`.
+
+4. Pronto — a tela inicial, o `/dashboard` combinado e a exportação
+   combinada (`/exportar?tipo=todos`) passam a incluir o novo tipo
+   automaticamente, e o backup (local + S3) passa a cobrir a nova
+   tabela sozinho (via `colunas_backup`/`tabela` do `TipoRegistro`).
+
+Nada no `RegistroTemperatura` original muda ao adicionar um novo
+tipo — cada tipo é isolado no seu próprio pacote/tabela.
+
 ## Rodando localmente
 
 ```bash
@@ -58,9 +131,9 @@ pip install -r requirements.txt
 python wsgi.py
 ```
 
-Acesse `http://localhost:5000` (tela de registro) e
-`http://localhost:5000/dashboard` (painel). O banco `instance/temperaturas.db`
-é criado automaticamente no primeiro acesso.
+Acesse `http://localhost:5000` (tela inicial, escolha do tipo de
+registro) e `http://localhost:5000/dashboard` (painel). O banco
+`instance/temperaturas.db` é criado automaticamente no primeiro acesso.
 
 ## Variáveis de ambiente
 
@@ -108,9 +181,9 @@ até o próximo "sono" do serviço.
 Basta definir `BACKUP_S3_BUCKET` (e as credenciais — veja tabela de
 variáveis abaixo). Com isso:
 
-1. Toda vez que alguém salva um registro em `/registrar`, um backup
-   roda em segundo plano e sobe para o S3 (ou compatível: Cloudflare
-   R2, Backblaze B2) — sem atrasar a resposta pro usuário.
+1. Toda vez que alguém salva um registro (de qualquer tipo), um
+   backup roda em segundo plano e sobe para o S3 (ou compatível:
+   Cloudflare R2, Backblaze B2) — sem atrasar a resposta pro usuário.
 2. Ao subir num disco vazio (ex.: logo após o serviço "dormir" e
    acordar, ou um redeploy), a aplicação **restaura automaticamente**
    o backup mais recente do S3 antes de criar um banco novo — os
@@ -239,18 +312,29 @@ command `pip install -r requirements.txt` e Start command
 
 ## Telas
 
-1. **Registro** (`/`) — botões grandes por etapa, campo numérico de
-   temperatura, campo de responsável (com sugestões dos últimos nomes
-   digitados) e botão "Salvar" grande. Mostra alerta de sucesso ou de
-   "fora do padrão" imediatamente após salvar.
-2. **Painel** (`/dashboard`) — filtros de período (dia/semana/mês/
-   personalizado) e etapa, cartões de resumo, gráfico de temperatura
-   ao longo do tempo por etapa (pontos fora do padrão aparecem em
-   vermelho) e tabela com destaque vermelho nas linhas fora do padrão.
-3. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
+1. **Início** (`/`) — grade de botões grandes, um por tipo de
+   registro cadastrado (hoje só "Temperatura de Processo"). Ao
+   clicar, leva ao formulário daquele tipo.
+2. **Registro de temperatura** (`/temperatura`) — botões grandes por
+   etapa, campo numérico de temperatura, campo de responsável (com
+   sugestões dos últimos nomes digitados) e botão "Salvar" grande.
+   Mostra alerta de sucesso ou de "fora do padrão" imediatamente após
+   salvar.
+3. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
+   direto para o painel de temperatura: filtros de período
+   (dia/semana/mês/personalizado) e etapa, cartões de resumo, gráfico
+   de temperatura ao longo do tempo por etapa (pontos fora do padrão
+   aparecem em vermelho) e tabela com destaque vermelho nas linhas
+   fora do padrão. Com dois ou mais tipos cadastrados, `/dashboard`
+   passa a mostrar uma visão combinada (cartões de contagem por tipo +
+   tabela unificada), com um seletor para entrar no painel específico
+   de cada tipo.
+4. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
    colunas Dia, Horário, Etapa, Temperatura, Responsável e Conforme
    (Sim/Não), respeitando os filtros aplicados. Linhas fora do padrão
-   vêm destacadas em vermelho na planilha.
+   vêm destacadas em vermelho na planilha. Com múltiplos tipos, é
+   possível exportar tudo num único arquivo com uma aba por tipo
+   (`/exportar?tipo=todos`).
 
 ## Paleta de cores
 

@@ -1,0 +1,13 @@
+from app.tipos.base import (  # noqa: F401
+    TIPOS_REGISTRO,
+    TipoRegistro,
+    blueprints_registrados,
+    obter_tipo,
+    registrar_tipo,
+)
+
+# Cada tipo de registro se cadastra sozinho ao ser importado aqui
+# (chama registrar_tipo() no seu __init__.py). Para adicionar um novo
+# tipo, crie o pacote app/tipos/<slug>/ e importe-o abaixo — veja o
+# README.md ("Como adicionar um novo tipo de registro").
+from app.tipos import temperatura  # noqa: E402,F401

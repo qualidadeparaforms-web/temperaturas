@@ -1,43 +1,21 @@
-import os
-import threading
 from datetime import date, datetime
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
+from app.backup_utils import agendar_backup_apos_registro
 from app.extensions import db
-from app.models import ETAPAS, RegistroTemperatura
+from app.tipos.temperatura.models import ETAPAS, RegistroTemperatura
 
-registro_bp = Blueprint("registro", __name__)
-
-
-def _agendar_backup_apos_registro() -> None:
-    """Dispara um backup em segundo plano logo após salvar um registro.
-
-    Importante em hospedagens de plano gratuito (ex.: Render Free):
-    o disco local é apagado toda vez que o serviço "dorme" por
-    inatividade (~15 min sem acesso), não só em redeploys. Fazer o
-    backup na hora, em vez de esperar um ciclo periódico, é o que
-    garante que o registro sobreviva a esse "sono". Só roda quando
-    BACKUP_S3_BUCKET está configurado — sem isso, um backup só local
-    não sobrevive ao mesmo apagão.
-    """
-    if not os.environ.get("BACKUP_S3_BUCKET"):
-        return
-
-    def _rodar():
-        try:
-            from backup import executar_backup
-
-            executar_backup()
-        except Exception as exc:  # nunca deve derrubar a resposta ao usuário
-            print(f"Falha ao fazer backup após o registro: {exc}")
-
-    threading.Thread(target=_rodar, daemon=True, name="backup-pos-registro").start()
+# Convenção: o blueprint do formulário de cada tipo tem o mesmo nome
+# do slug (aqui "temperatura"), com url_prefix "/<slug>" e uma rota
+# "" (GET) chamada "index" — é assim que a tela inicial (app/routes/home.py)
+# monta o link para cada tipo via url_for(f"{tipo.slug}.index").
+formulario_bp = Blueprint("temperatura", __name__, url_prefix="/temperatura")
 
 
-@registro_bp.route("/", methods=["GET"])
+@formulario_bp.route("", methods=["GET"])
 def index():
-    """Tela principal de registro, usada no chão de fábrica (tablet/celular)."""
+    """Tela de registro de temperatura, usada no chão de fábrica (tablet/celular)."""
     recentes = (
         db.session.query(RegistroTemperatura.responsavel)
         .distinct()
@@ -46,10 +24,12 @@ def index():
         .all()
     )
     responsaveis = [r[0] for r in recentes]
-    return render_template("registro.html", etapas=ETAPAS, responsaveis=responsaveis)
+    return render_template(
+        "tipos/temperatura/formulario.html", etapas=ETAPAS, responsaveis=responsaveis
+    )
 
 
-@registro_bp.route("/registrar", methods=["POST"])
+@formulario_bp.route("/registrar", methods=["POST"])
 def registrar():
     etapa = (request.form.get("etapa") or "").strip()
     temperatura_raw = (request.form.get("temperatura") or "").strip()
@@ -74,7 +54,7 @@ def registrar():
     if erros:
         for erro in erros:
             flash(erro, "danger")
-        return redirect(url_for("registro.index"))
+        return redirect(url_for("temperatura.index"))
 
     registro = RegistroTemperatura(
         data=date.today(),
@@ -86,7 +66,7 @@ def registrar():
     db.session.add(registro)
     db.session.commit()
 
-    _agendar_backup_apos_registro()
+    agendar_backup_apos_registro()
 
     if registro.conforme:
         flash(
@@ -101,4 +81,4 @@ def registrar():
             "warning",
         )
 
-    return redirect(url_for("registro.index"))
+    return redirect(url_for("temperatura.index"))

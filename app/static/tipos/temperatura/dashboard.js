@@ -72,8 +72,32 @@
     corpo.innerHTML = linhas;
   }
 
+  function calcularLimitesEixoX(registros) {
+    // O eixo X é numérico (timestamp em ms) para garantir ordem
+    // cronológica correta mesmo com etapas misturadas (ver comentário
+    // abaixo). Mas o cálculo automático de min/max do Chart.js quebra
+    // quando todos os pontos caem no mesmo instante (comum: o campo
+    // "horario" só tem precisão de minuto, então 2+ registros no
+    // mesmo minuto colidem no mesmo x) — o intervalo fica ~zero e o
+    // algoritmo de "nice ticks" do Chart.js explode para um range de
+    // vários anos. Por isso definimos min/max explicitamente, com uma
+    // folga mínima de 30 min para os dois lados nesse caso.
+    if (!registros.length) return { min: undefined, max: undefined };
+    const timestamps = registros.map((r) => new Date(`${r.data_iso}T${r.horario}:00`).getTime());
+    let min = Math.min(...timestamps);
+    let max = Math.max(...timestamps);
+    const folgaMinimaMs = 30 * 60 * 1000;
+    if (max - min < folgaMinimaMs * 2) {
+      const centro = (min + max) / 2;
+      min = centro - folgaMinimaMs;
+      max = centro + folgaMinimaMs;
+    }
+    return { min, max };
+  }
+
   function atualizarGrafico(registros) {
     const ctx = document.getElementById("graficoTemperatura");
+    const { min: minEixoX, max: maxEixoX } = calcularLimitesEixoX(registros);
 
     const etapasPresentes = [...new Set(registros.map((r) => r.etapa))];
     const datasets = etapasPresentes.map((etapa) => {
@@ -129,6 +153,8 @@
         scales: {
           x: {
             type: "linear",
+            min: minEixoX,
+            max: maxEixoX,
             ticks: {
               autoSkip: true,
               maxTicksLimit: 12,
@@ -151,9 +177,9 @@
 
   async function carregarDados() {
     const qs = montarQueryString();
-    elBotaoExportar.href = "/exportar?" + qs;
+    elBotaoExportar.href = "/dashboard/temperatura/exportar?" + qs;
 
-    const resposta = await fetch("/api/registros?" + qs);
+    const resposta = await fetch("/dashboard/temperatura/api?" + qs);
     const dados = await resposta.json();
 
     atualizarResumo(dados.resumo);

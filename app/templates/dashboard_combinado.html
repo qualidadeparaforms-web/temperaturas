@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block titulo %}Painel — Todos os registros{% endblock %}
+
+{% block conteudo %}
+<div class="seletor-tipos mb-3">
+  {% for tipo in tipos %}
+  <a href="{{ url_for('dashboard.dashboard', tipo=tipo.slug) }}" class="seletor-tipo-item">
+    {{ tipo.icone }} {{ tipo.nome }}
+  </a>
+  {% endfor %}
+  <a href="{{ url_for('dashboard.dashboard', tipo='todos') }}" class="seletor-tipo-item ativo">📋 Todos</a>
+</div>
+
+<form method="get" class="row g-3 align-items-end mb-3">
+  <input type="hidden" name="tipo" value="todos">
+  <div class="col-6 col-md-2">
+    <label class="form-label fw-bold">Período</label>
+    <select class="form-select" name="periodo" onchange="this.form.submit()">
+      <option value="dia" {% if periodo == "dia" %}selected{% endif %}>Hoje</option>
+      <option value="semana" {% if periodo == "semana" %}selected{% endif %}>Última semana</option>
+      <option value="mes" {% if periodo == "mes" %}selected{% endif %}>Último mês</option>
+    </select>
+  </div>
+  <div class="col-12 col-md-auto ms-md-auto">
+    <a href="{{ url_for('dashboard.exportar', tipo='todos', periodo=periodo) }}" class="btn btn-salvar w-100" style="min-height:50px; font-size:1.1rem;">
+      📊 Exportar tudo (Excel, uma aba por tipo)
+    </a>
+  </div>
+</form>
+
+<div class="row g-3 mb-3">
+  {% for resumo in resumos %}
+  <div class="col-6 col-md-3">
+    <div class="cartao-resumo total">
+      <div>{{ resumo.tipo.icone }} {{ resumo.tipo.nome }}</div>
+      <div class="valor">{{ resumo.total }}</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="table-responsive bg-white rounded p-2 border">
+  <table class="table table-hover align-middle mb-0">
+    <thead>
+      <tr>
+        <th>Tipo</th>
+        <th>Dia</th>
+        <th>Horário</th>
+        <th>Resumo</th>
+        <th>Situação</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for linha in linhas %}
+      <tr class="{% if linha.conforme == false %}linha-fora-padrao{% endif %}">
+        <td>{{ linha.icone }} {{ linha.tipo }}</td>
+        <td>{{ linha.data }}</td>
+        <td>{{ linha.horario }}</td>
+        <td>{{ linha.resumo }}</td>
+        <td>
+          {% if linha.conforme == true %}
+            <span class="badge badge-conforme">Conforme</span>
+          {% elif linha.conforme == false %}
+            <span class="badge badge-fora-padrao">⚠️ Fora do padrão</span>
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="text-center text-muted py-4">Nenhum registro encontrado para o período selecionado.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
