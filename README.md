@@ -30,7 +30,37 @@ para como adicionar um novo tipo.
 Registros acima do limite mostram **"⚠️ Fora do padrão"** na hora, mas
 são salvos normalmente — o sistema nunca bloqueia o registro, apenas
 avisa. (Cada tipo de registro define suas próprias regras — as de
-outros tipos ficam documentadas junto do respectivo tipo.)
+outros tipos ficam documentadas junto do respectivo tipo, como abaixo.)
+
+## Regras de negócio — Temperatura de Setor/Câmara
+
+17 setores/câmaras fixos, cada um com seu próprio limite máximo
+(conforme quando a temperatura registrada é `<=` o limite — vários são
+negativos, para câmaras e túneis de congelamento):
+
+| Setor/Câmara | Limite (conforme até) |
+|---|---|
+| Câmara 1 - Estoque de congelados | -18°C |
+| Câmara 2 - Estoque de congelados | -18°C |
+| Setor de expedição | 16°C |
+| Câmara 3 - Estoque de resfriados | 4°C |
+| Túnel de congelamento 3 | -25°C |
+| Setor de selagem | 16°C |
+| Túnel de congelamento 2 - Giro freezer | -25°C |
+| Setor de embalagem primária | 16°C |
+| Setor de industrializados | 10°C |
+| Câmara de industrializados | 4°C |
+| Câmara de retalhos 2 | 4°C |
+| Setor de carne moída | 10°C |
+| Câmara de retalhos 1 | 4°C |
+| Câmara de carcaças | 4°C |
+| Setor de cortes | 16°C |
+| Túnel de congelamento 4 - Serra | -25°C |
+| Setor de temperados | 16°C |
+
+Mesma regra de "aviso mas não bloqueia" da Temperatura de Processo.
+Os limites são fixos no código
+(`app/tipos/temperatura_setor/models.py`), não editáveis pela tela.
 
 ## Estrutura do projeto
 
@@ -313,28 +343,32 @@ command `pip install -r requirements.txt` e Start command
 ## Telas
 
 1. **Início** (`/`) — grade de botões grandes, um por tipo de
-   registro cadastrado (hoje só "Temperatura de Processo"). Ao
-   clicar, leva ao formulário daquele tipo.
+   registro cadastrado: hoje "🌡️ Temperatura de Processo" e "🧊
+   Temperatura de Setor/Câmara". Ao clicar, leva ao formulário
+   daquele tipo.
 2. **Registro de temperatura** (`/temperatura`) — botões grandes por
    etapa, campo numérico de temperatura, campo de responsável (com
    sugestões dos últimos nomes digitados) e botão "Salvar" grande.
    Mostra alerta de sucesso ou de "fora do padrão" imediatamente após
    salvar.
-3. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
-   direto para o painel de temperatura: filtros de período
-   (dia/semana/mês/personalizado) e etapa, cartões de resumo, gráfico
-   de temperatura ao longo do tempo por etapa (pontos fora do padrão
-   aparecem em vermelho) e tabela com destaque vermelho nas linhas
-   fora do padrão. Com dois ou mais tipos cadastrados, `/dashboard`
-   passa a mostrar uma visão combinada (cartões de contagem por tipo +
-   tabela unificada), com um seletor para entrar no painel específico
-   de cada tipo.
-4. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
-   colunas Dia, Horário, Etapa, Temperatura, Responsável e Conforme
-   (Sim/Não), respeitando os filtros aplicados. Linhas fora do padrão
-   vêm destacadas em vermelho na planilha. Com múltiplos tipos, é
-   possível exportar tudo num único arquivo com uma aba por tipo
-   (`/exportar?tipo=todos`).
+3. **Registro de temperatura de setor/câmara** (`/temperatura_setor`)
+   — mesma ideia, mas com um campo de busca no lugar da grade fixa de
+   botões (17 setores é demais pra caber sem rolar a tela toda): a
+   busca filtra os botões em tempo real por nome, sem diferenciar
+   acento. Temperatura aceita negativos.
+4. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
+   direto para o painel daquele tipo; com dois ou mais (como hoje),
+   mostra uma visão combinada por padrão (cartões de contagem por tipo
+   + tabela unificada), com um seletor para entrar no painel completo
+   de cada tipo (filtros de período + etapa/setor, cartões de resumo,
+   gráfico ao longo do tempo com pontos fora do padrão em vermelho, e
+   tabela com destaque vermelho nas linhas fora do padrão).
+5. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
+   colunas do tipo em questão (Dia, Horário, Etapa/Setor, Temperatura,
+   Responsável, Conforme), respeitando os filtros aplicados. Linhas
+   fora do padrão vêm destacadas em vermelho na planilha. Na visão
+   combinada, "Exportar tudo" gera um único arquivo com uma aba por
+   tipo (`/exportar?tipo=todos`).
 
 ## Paleta de cores
 
