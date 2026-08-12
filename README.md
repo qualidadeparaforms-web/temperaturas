@@ -79,6 +79,20 @@ pontos fixos (mesmo padrão de etapa/setor dos outros tipos) — na
 prática é monitorado 1 ponto por dia, em rodízio entre eles. Limites
 fixos em `app/tipos/agua_abastecimento/models.py`.
 
+## Regras de negócio — PAC 04-C - Temperatura dos Produtos na Produção
+
+O limite depende da **categoria** escolhida, não é fixo por produto:
+
+| Categoria | Limite (conforme até) |
+|---|---|
+| Corte | 7°C |
+| Carne Moída | 4°C |
+
+"Local" (Produto em Processo / Produto na Câmara de Retalhos) é só
+descritivo, não afeta a conformidade. "Produto" é texto livre (nome
+específico, ex.: "Bife", "Isca") — sem limite de quantos registros por
+dia. Limites fixos em `app/tipos/temp_produto/models.py`.
+
 ## Estrutura do projeto
 
 ```
@@ -361,8 +375,9 @@ command `pip install -r requirements.txt` e Start command
 
 1. **Início** (`/`) — grade de botões grandes, um por tipo de
    registro cadastrado: hoje "🌡️ Temperatura de Processo", "🧊
-   Temperatura de Setor/Câmara" e "💧 PAC 03-A - Água de
-   Abastecimento". Ao clicar, leva ao formulário daquele tipo.
+   Temperatura de Setor/Câmara", "💧 PAC 03-A - Água de
+   Abastecimento" e "🥩 PAC 04-C - Temperatura dos Produtos". Ao
+   clicar, leva ao formulário daquele tipo.
 2. **Registro de temperatura** (`/temperatura`) — botões grandes por
    etapa, campo numérico de temperatura, campo de responsável (com
    sugestões dos últimos nomes digitados) e botão "Salvar" grande.
@@ -377,7 +392,12 @@ command `pip install -r requirements.txt` e Start command
    botões grandes pro ponto de coleta (9 pontos fixos, mesmo padrão de
    etapa/setor), campos numéricos de pH e Cloro. O alerta indica
    especificamente qual dos dois está fora do padrão.
-5. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
+5. **Registro de temperatura de produto** (`/temp_produto`) — botões
+   pra local e categoria, campo de texto pro nome do produto (com
+   sugestões dos últimos produtos digitados), temperatura numérica. O
+   limite de conformidade depende da categoria escolhida (Corte vs.
+   Carne Moída), não é fixo. Sem limite de quantos registros por dia.
+6. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
    direto para o painel daquele tipo; com dois ou mais (como hoje),
    mostra uma visão combinada por padrão (cartões de contagem por tipo
    + tabela unificada), com um seletor para entrar no painel completo
@@ -386,7 +406,7 @@ command `pip install -r requirements.txt` e Start command
    água de abastecimento usa dois eixos Y, um pra pH e outro pra
    Cloro, já que têm faixas e unidades diferentes — e tabela com
    destaque vermelho nas linhas fora do padrão).
-6. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
+7. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
    colunas do tipo em questão, respeitando os filtros aplicados.
    Linhas fora do padrão vêm destacadas em vermelho na planilha. Na
    visão combinada, "Exportar tudo" gera um único arquivo com uma aba por

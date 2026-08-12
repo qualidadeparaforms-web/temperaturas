@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block titulo %}Registrar Temperatura de Produto{% endblock %}
+
+{% block conteudo %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <a href="{{ url_for('home.index') }}" class="link-voltar">← Escolher outro tipo de registro</a>
+    <form method="post" action="{{ url_for('temp_produto.registrar') }}" id="formRegistroProduto" autocomplete="off">
+
+      <h2 class="titulo-secao">1. Local</h2>
+      <div class="row row-cols-1 row-cols-sm-2 g-2 mb-4">
+        {% for local in locais %}
+        <div class="col">
+          <input type="radio" class="btn-check" name="local" id="local-{{ loop.index }}" value="{{ local }}" required>
+          <label class="btn-etapa w-100" for="local-{{ loop.index }}">{{ local }}</label>
+        </div>
+        {% endfor %}
+      </div>
+
+      <h2 class="titulo-secao">2. Categoria</h2>
+      <div class="row row-cols-1 row-cols-sm-2 g-2 mb-4">
+        {% for categoria in categorias %}
+        <div class="col">
+          <input type="radio" class="btn-check" name="categoria" id="categoria-{{ loop.index }}" value="{{ categoria }}" required>
+          <label class="btn-etapa w-100" for="categoria-{{ loop.index }}">{{ categoria }}</label>
+        </div>
+        {% endfor %}
+      </div>
+
+      <h2 class="titulo-secao">3. Produto</h2>
+      <div class="mb-4">
+        <input
+          type="text"
+          name="produto"
+          id="campoProduto"
+          class="form-control form-control-lg"
+          placeholder="Ex.: Bife, Isca..."
+          list="listaProdutos"
+          required>
+        <datalist id="listaProdutos">
+          {% for produto in produtos_sugeridos %}
+          <option value="{{ produto }}">
+          {% endfor %}
+        </datalist>
+      </div>
+
+      <h2 class="titulo-secao">4. Temperatura (°C)</h2>
+      <div class="mb-4">
+        <input
+          type="number"
+          step="0.1"
+          inputmode="decimal"
+          name="temperatura"
+          id="campoTemperatura"
+          class="form-control form-control-temperatura text-center"
+          placeholder="0.0"
+          required>
+        <div class="form-text">Padrão: Corte até 7°C — Carne Moída até 4°C</div>
+      </div>
+
+      <h2 class="titulo-secao">5. Responsável</h2>
+      <div class="mb-4">
+        <input
+          type="text"
+          name="responsavel"
+          id="campoResponsavel"
+          class="form-control form-control-lg"
+          placeholder="Nome de quem está registrando"
+          list="listaResponsaveisProduto"
+          required>
+        <datalist id="listaResponsaveisProduto">
+          {% for nome in responsaveis %}
+          <option value="{{ nome }}">
+          {% endfor %}
+        </datalist>
+      </div>
+
+      <button type="submit" class="btn btn-salvar w-100">💾 SALVAR</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+  // Lembra o último responsável digitado (chave própria — cada tipo
+  // é isolado, mesmo padrão dos outros tipos já existentes).
+  (function () {
+    const campo = document.getElementById("campoResponsavel");
+    const salvo = localStorage.getItem("ultimoResponsavelProduto");
+    if (salvo) {
+      campo.value = salvo;
+    }
+    document.getElementById("formRegistroProduto").addEventListener("submit", function () {
+      localStorage.setItem("ultimoResponsavelProduto", campo.value);
+    });
+  })();
+</script>
+{% endblock %}
