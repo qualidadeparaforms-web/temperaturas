@@ -15,3 +15,4 @@ from app.tipos import temperatura_setor  # noqa: E402,F401
 from app.tipos import agua_abastecimento  # noqa: E402,F401
 from app.tipos import temp_produto  # noqa: E402,F401
 from app.tipos import temp_expedicao  # noqa: E402,F401
+from app.tipos import peso_produto  # noqa: E402,F401

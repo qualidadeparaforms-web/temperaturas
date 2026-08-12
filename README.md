@@ -114,6 +114,30 @@ quando esse local é escolhido (e o backend ignora/zera qualquer valor
 de categoria enviado para ele, por segurança). Limites fixos em
 `app/tipos/temp_expedicao/models.py`.
 
+## Regras de negócio — PAC 06-D - Monitoramento de Peso (Produto Embalado)
+
+Diferente dos demais tipos, este registro é **relacional**: um
+registro de avaliação do produto (`registros_peso_produto`) tem
+várias pesagens individuais associadas (`pesagens_individuais`), em
+quantidade variável — não há um número fixo de pesagens por produto.
+
+- Para cada produto avaliado, informa-se o **peso líquido nominal** e
+  o **peso da embalagem**. A soma dos dois é o **padrão mínimo**
+  (`peso_minimo`) que cada pesagem individual precisa atingir.
+- Cada pesagem é **conforme** quando `peso_medido >= peso_minimo`
+  (igual ao padrão mínimo conta como conforme). Cada pesagem **não
+  conforme (NC)** é a que ficar abaixo do padrão.
+- O sistema calcula automaticamente, por registro: total de
+  pesagens, total de NCs e percentual de conformidade.
+- Na tela de registro, as pesagens são acumuladas no navegador (uma a
+  uma, com lista visual verde/vermelho e resumo ao vivo) e só são
+  enviadas ao servidor junto com o registro do produto, em um único
+  envio, ao clicar em "Finalizar registro do produto". Não é possível
+  finalizar sem pelo menos uma pesagem lançada.
+- O registro é salvo mesmo havendo pesagens fora do padrão (mesma
+  filosofia dos demais tipos: registrar sempre, sinalizar o desvio).
+- Modelo de dados e regras em `app/tipos/peso_produto/models.py`.
+
 ## Estrutura do projeto
 
 ```
@@ -397,9 +421,9 @@ command `pip install -r requirements.txt` e Start command
 1. **Início** (`/`) — grade de botões grandes, um por tipo de
    registro cadastrado: hoje "🌡️ Temperatura de Processo", "🧊
    Temperatura de Setor/Câmara", "💧 PAC 03-A - Água de
-   Abastecimento", "🥩 PAC 04-C - Temperatura dos Produtos" e "📦
-   PAC 04-D - Câmaras de Expedição". Ao clicar, leva ao formulário
-   daquele tipo.
+   Abastecimento", "🥩 PAC 04-C - Temperatura dos Produtos", "📦
+   PAC 04-D - Câmaras de Expedição" e "⚖️ PAC 06-D - Monitoramento de
+   Peso". Ao clicar, leva ao formulário daquele tipo.
 2. **Registro de temperatura** (`/temperatura`) — botões grandes por
    etapa, campo numérico de temperatura, campo de responsável (com
    sugestões dos últimos nomes digitados) e botão "Salvar" grande.
@@ -424,7 +448,18 @@ command `pip install -r requirements.txt` e Start command
    aparece ou some dinamicamente dependendo do local escolhido ("Matéria
    Prima - Quebra de Gelo" não tem categoria). O limite depende da
    combinação local + categoria. Temperatura aceita negativos.
-7. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
+7. **Registro de monitoramento de peso** (`/peso_produto`) — dados do
+   produto (nome, peso líquido nominal, peso da embalagem,
+   responsável) e, em seguida, uma seção pra ir lançando pesagens
+   individuais uma a uma (campo numérico + botão "+ Adicionar"): cada
+   pesagem entra numa lista visual verde/vermelho conforme atinge ou
+   não o padrão mínimo (peso líquido + embalagem), com um resumo ao
+   vivo (total de pesagens, NCs, % conforme) e opção de remover
+   qualquer pesagem antes de salvar. A seção de pesagens só aparece
+   depois de preencher os dois pesos; o botão "Finalizar registro do
+   produto" só habilita com pelo menos uma pesagem lançada. Um único
+   envio salva o registro do produto e todas as pesagens juntos.
+8. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
    direto para o painel daquele tipo; com dois ou mais (como hoje),
    mostra uma visão combinada por padrão (cartões de contagem por tipo
    + tabela unificada), com um seletor para entrar no painel completo
@@ -432,12 +467,18 @@ command `pip install -r requirements.txt` e Start command
    longo do tempo com pontos fora do padrão em vermelho — o painel de
    água de abastecimento usa dois eixos Y, um pra pH e outro pra
    Cloro, já que têm faixas e unidades diferentes — e tabela com
-   destaque vermelho nas linhas fora do padrão).
-8. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
+   destaque vermelho nas linhas fora do padrão). No painel de
+   monitoramento de peso, cada ponto do gráfico é uma avaliação de
+   produto (não uma pesagem individual), com o eixo Y mostrando o
+   total de NCs daquela avaliação.
+9. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
    colunas do tipo em questão, respeitando os filtros aplicados.
-   Linhas fora do padrão vêm destacadas em vermelho na planilha. Na
-   visão combinada, "Exportar tudo" gera um único arquivo com uma aba por
-   tipo (`/exportar?tipo=todos`).
+   Linhas fora do padrão vêm destacadas em vermelho na planilha. O
+   monitoramento de peso gera duas abas: um resumo por avaliação de
+   produto ("Peso Produto") e o detalhe de cada pesagem individual
+   ("Peso Produto Detalhe"). Na visão combinada, "Exportar tudo" gera
+   um único arquivo com uma aba por tipo (`/exportar?tipo=todos`,
+   duas abas no caso do monitoramento de peso).
 
 ## Paleta de cores
 

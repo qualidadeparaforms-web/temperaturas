@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block titulo %}Painel — Monitoramento de Peso{% endblock %}
+
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block conteudo %}
+{% if tipos and tipos|length > 1 %}
+<div class="seletor-tipos mb-3">
+  {% for tipo in tipos %}
+  <a href="{{ url_for('dashboard.dashboard', tipo=tipo.slug) }}"
+     class="seletor-tipo-item {% if tipo.slug == 'peso_produto' %}ativo{% endif %}">
+    {{ tipo.icone }} {{ tipo.nome }}
+  </a>
+  {% endfor %}
+  <a href="{{ url_for('dashboard.dashboard', tipo='todos') }}" class="seletor-tipo-item">📋 Todos</a>
+</div>
+{% endif %}
+<div class="row g-3 align-items-end mb-3" id="formFiltros">
+  <div class="col-6 col-md-2">
+    <label class="form-label fw-bold">Período</label>
+    <select class="form-select" id="filtroPeriodo">
+      <option value="dia">Hoje</option>
+      <option value="semana" selected>Última semana</option>
+      <option value="mes">Último mês</option>
+      <option value="personalizado">Personalizado</option>
+    </select>
+  </div>
+  <div class="col-6 col-md-3 d-none" id="campoDataInicio">
+    <label class="form-label fw-bold">De</label>
+    <input type="date" class="form-control" id="filtroDataInicio">
+  </div>
+  <div class="col-6 col-md-3 d-none" id="campoDataFim">
+    <label class="form-label fw-bold">Até</label>
+    <input type="date" class="form-control" id="filtroDataFim">
+  </div>
+  <div class="col-12 col-md-auto ms-md-auto">
+    <a href="#" id="botaoExportar" class="btn btn-salvar w-100" style="min-height:50px; font-size:1.1rem;">
+      📊 Exportar Excel
+    </a>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3">
+    <div class="cartao-resumo total">
+      <div>Produtos avaliados</div>
+      <div class="valor" id="resumoTotalRegistros">–</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="cartao-resumo conformes">
+      <div>Total de pesagens</div>
+      <div class="valor" id="resumoTotalPesagens">–</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="cartao-resumo fora-padrao">
+      <div>Total de NCs</div>
+      <div class="valor" id="resumoTotalNc">–</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="cartao-resumo percentual">
+      <div>% conformidade</div>
+      <div class="valor" id="resumoPercentual">–</div>
+    </div>
+  </div>
+</div>
+
+<div id="graficoContainer" class="mb-3">
+  <canvas id="graficoPeso" height="90"></canvas>
+</div>
+
+<div class="table-responsive bg-white rounded p-2 border">
+  <table class="table table-hover align-middle mb-0">
+    <thead>
+      <tr>
+        <th>Dia</th>
+        <th>Horário</th>
+        <th>Produto</th>
+        <th>Peso Líq. Nominal</th>
+        <th>Peso Embalagem</th>
+        <th>Pesagens</th>
+        <th>NCs</th>
+        <th>Responsável</th>
+        <th>Situação</th>
+      </tr>
+    </thead>
+    <tbody id="tabelaRegistros">
+      <tr><td colspan="9" class="text-center text-muted py-4">Carregando...</td></tr>
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="{{ url_for('static', filename='tipos/peso_produto/dashboard.js') }}"></script>
+{% endblock %}

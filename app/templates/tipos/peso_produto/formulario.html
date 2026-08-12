@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+{% block titulo %}Registrar Monitoramento de Peso{% endblock %}
+
+{% block conteudo %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <a href="{{ url_for('home.index') }}" class="link-voltar">← Escolher outro tipo de registro</a>
+    <form method="post" action="{{ url_for('peso_produto.registrar') }}" id="formPeso" autocomplete="off">
+
+      <h2 class="titulo-secao">1. Produto</h2>
+      <div class="mb-4">
+        <input
+          type="text"
+          name="produto"
+          id="campoProduto"
+          class="form-control form-control-lg"
+          placeholder="Nome do produto avaliado"
+          list="listaProdutosPeso"
+          required>
+        <datalist id="listaProdutosPeso">
+          {% for produto in produtos_sugeridos %}
+          <option value="{{ produto }}">
+          {% endfor %}
+        </datalist>
+      </div>
+
+      <h2 class="titulo-secao">2. Peso líquido nominal</h2>
+      <div class="mb-4">
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          inputmode="decimal"
+          name="peso_liquido_nominal"
+          id="campoPesoLiquido"
+          class="form-control form-control-lg text-center"
+          placeholder="0.0"
+          required>
+        <div class="form-text">Use sempre a mesma unidade (g ou kg) nos três campos de peso.</div>
+      </div>
+
+      <h2 class="titulo-secao">3. Peso da embalagem</h2>
+      <div class="mb-4">
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          inputmode="decimal"
+          name="peso_embalagem"
+          id="campoPesoEmbalagem"
+          class="form-control form-control-lg text-center"
+          placeholder="0.0"
+          required>
+      </div>
+
+      <h2 class="titulo-secao">4. Responsável</h2>
+      <div class="mb-4">
+        <input
+          type="text"
+          name="responsavel"
+          id="campoResponsavel"
+          class="form-control form-control-lg"
+          placeholder="Nome de quem está registrando"
+          list="listaResponsaveisPeso"
+          required>
+        <datalist id="listaResponsaveisPeso">
+          {% for nome in responsaveis %}
+          <option value="{{ nome }}">
+          {% endfor %}
+        </datalist>
+      </div>
+
+      <hr class="my-4">
+
+      <h2 class="titulo-secao">5. Pesagens individuais</h2>
+      <p class="text-muted small" id="avisoPadrao">
+        Preencha o peso líquido nominal e o peso da embalagem acima para começar a lançar pesagens.
+      </p>
+      <div class="input-group mb-3 d-none" id="grupoAdicionarPesagem">
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          inputmode="decimal"
+          id="campoPesagem"
+          class="form-control form-control-lg"
+          placeholder="Peso medido">
+        <button type="button" class="btn btn-adicionar-pesagem" id="botaoAdicionarPesagem">+ Adicionar</button>
+      </div>
+
+      <ul class="list-unstyled mb-3" id="listaPesagens"></ul>
+
+      <div class="row g-2 mb-4 d-none" id="resumoPesagens">
+        <div class="col-4">
+          <div class="cartao-resumo total py-2">
+            <div class="small">Pesagens</div>
+            <div class="valor" id="resumoTotalPesagens">0</div>
+          </div>
+        </div>
+        <div class="col-4">
+          <div class="cartao-resumo fora-padrao py-2">
+            <div class="small">NCs</div>
+            <div class="valor" id="resumoTotalNc">0</div>
+          </div>
+        </div>
+        <div class="col-4">
+          <div class="cartao-resumo percentual py-2">
+            <div class="small">% conforme</div>
+            <div class="valor" id="resumoPercentualPesagens">–</div>
+          </div>
+        </div>
+      </div>
+
+      <input type="hidden" name="pesagens_json" id="campoPesagensJson">
+
+      <button type="submit" class="btn btn-salvar w-100" id="botaoFinalizar" disabled>
+        💾 FINALIZAR REGISTRO DO PRODUTO
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+  (function () {
+    const campoResponsavel = document.getElementById("campoResponsavel");
+    const salvo = localStorage.getItem("ultimoResponsavelPeso");
+    if (salvo) {
+      campoResponsavel.value = salvo;
+    }
+
+    const campoPesoLiquido = document.getElementById("campoPesoLiquido");
+    const campoPesoEmbalagem = document.getElementById("campoPesoEmbalagem");
+    const avisoPadrao = document.getElementById("avisoPadrao");
+    const grupoAdicionar = document.getElementById("grupoAdicionarPesagem");
+    const campoPesagem = document.getElementById("campoPesagem");
+    const botaoAdicionar = document.getElementById("botaoAdicionarPesagem");
+    const listaPesagens = document.getElementById("listaPesagens");
+    const resumoBloco = document.getElementById("resumoPesagens");
+    const resumoTotalPesagens = document.getElementById("resumoTotalPesagens");
+    const resumoTotalNc = document.getElementById("resumoTotalNc");
+    const resumoPercentual = document.getElementById("resumoPercentualPesagens");
+    const campoPesagensJson = document.getElementById("campoPesagensJson");
+    const botaoFinalizar = document.getElementById("botaoFinalizar");
+    const form = document.getElementById("formPeso");
+
+    // Pesagens ficam só no navegador até o envio final — um único
+    // POST salva o registro do produto e todas as pesagens juntos
+    // (ver app/tipos/peso_produto/formulario.py).
+    let pesagens = [];
+
+    function numero(valor) {
+      const n = parseFloat(String(valor).replace(",", "."));
+      return isNaN(n) ? null : n;
+    }
+
+    function padraoMinimo() {
+      const liquido = numero(campoPesoLiquido.value);
+      const embalagem = numero(campoPesoEmbalagem.value);
+      if (liquido === null || embalagem === null) return null;
+      return liquido + embalagem;
+    }
+
+    function atualizarDisponibilidade() {
+      const disponivel = padraoMinimo() !== null;
+      avisoPadrao.classList.toggle("d-none", disponivel);
+      grupoAdicionar.classList.toggle("d-none", !disponivel);
+    }
+
+    function renderizarLista() {
+      const padrao = padraoMinimo();
+
+      listaPesagens.innerHTML = pesagens
+        .map(function (peso, indice) {
+          const conforme = padrao !== null && peso >= padrao;
+          const classe = conforme ? "" : "pesagem-nc";
+          const rotulo = conforme ? "Conforme" : "⚠️ NC";
+          return (
+            '<li class="item-pesagem ' + classe + '">' +
+            "<span>#" + (indice + 1) + " — " + peso + "</span>" +
+            '<span class="badge ' + (conforme ? "badge-conforme" : "badge-fora-padrao") + '">' + rotulo + "</span>" +
+            '<button type="button" class="botao-remover-pesagem" data-indice="' + indice + '" aria-label="Remover">✕</button>' +
+            "</li>"
+          );
+        })
+        .join("");
+
+      const total = pesagens.length;
+      const totalNc = padrao === null ? 0 : pesagens.filter(function (p) { return p < padrao; }).length;
+      resumoTotalPesagens.textContent = total;
+      resumoTotalNc.textContent = totalNc;
+      resumoPercentual.textContent = total ? Math.round(((total - totalNc) / total) * 1000) / 10 + "%" : "–";
+      resumoBloco.classList.toggle("d-none", total === 0);
+
+      campoPesagensJson.value = JSON.stringify(pesagens);
+      botaoFinalizar.disabled = total === 0;
+
+      listaPesagens.querySelectorAll(".botao-remover-pesagem").forEach(function (botao) {
+        botao.addEventListener("click", function () {
+          pesagens.splice(parseInt(botao.dataset.indice, 10), 1);
+          renderizarLista();
+        });
+      });
+    }
+
+    function adicionarPesagem() {
+      const valor = numero(campoPesagem.value);
+      if (valor === null) {
+        campoPesagem.focus();
+        return;
+      }
+      pesagens.push(valor);
+      campoPesagem.value = "";
+      campoPesagem.focus();
+      renderizarLista();
+    }
+
+    botaoAdicionar.addEventListener("click", adicionarPesagem);
+    campoPesagem.addEventListener("keydown", function (evento) {
+      if (evento.key === "Enter") {
+        evento.preventDefault();
+        adicionarPesagem();
+      }
+    });
+    campoPesoLiquido.addEventListener("input", function () {
+      atualizarDisponibilidade();
+      renderizarLista();
+    });
+    campoPesoEmbalagem.addEventListener("input", function () {
+      atualizarDisponibilidade();
+      renderizarLista();
+    });
+
+    form.addEventListener("submit", function (evento) {
+      if (pesagens.length === 0) {
+        evento.preventDefault();
+        return;
+      }
+      localStorage.setItem("ultimoResponsavelPeso", campoResponsavel.value);
+    });
+
+    atualizarDisponibilidade();
+    renderizarLista();
+  })();
+</script>
+{% endblock %}

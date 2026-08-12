@@ -210,6 +210,54 @@ body {
   color: #fff;
 }
 
+/* ---------- Lista de pesagens (PAC 06-D) ---------- */
+
+.btn-adicionar-pesagem {
+  background-color: var(--navy);
+  color: #fff;
+  font-weight: 700;
+  border: none;
+  padding: 0 1.25rem;
+}
+
+.btn-adicionar-pesagem:hover,
+.btn-adicionar-pesagem:active {
+  background-color: #16294a;
+  color: #fff;
+}
+
+.item-pesagem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 10px;
+  border: 2px solid var(--azul);
+  background: #fff;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.item-pesagem.pesagem-nc {
+  border-color: var(--vermelho);
+  background-color: rgba(192, 0, 0, 0.08);
+}
+
+.botao-remover-pesagem {
+  border: none;
+  background: transparent;
+  color: #6c757d;
+  font-weight: 700;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0 0.25rem;
+}
+
+.botao-remover-pesagem:hover {
+  color: var(--vermelho);
+}
+
 .cartao-resumo {
   border-radius: 12px;
   border: none;
