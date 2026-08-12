@@ -138,6 +138,31 @@ quantidade variável — não há um número fixo de pesagens por produto.
   filosofia dos demais tipos: registrar sempre, sinalizar o desvio).
 - Modelo de dados e regras em `app/tipos/peso_produto/models.py`.
 
+## Regras de negócio — PAC 06-E - Monitoramento de Gramatura de Bifes e Cubos
+
+Mesma estrutura relacional do PAC 06-D (um registro de avaliação do
+produto, tabela `registros_gramatura`, com várias pesagens
+individuais associadas, tabela `pesagens_individuais_gramatura`, em
+quantidade variável), mas **sem embalagem**: aqui são pesados
+bifes/cubos soltos, comparados direto com uma gramatura nominal —
+sem margem de tolerância.
+
+- Para cada produto avaliado, informa-se a **gramatura nominal**
+  (peso alvo), além do **operador** (quem produziu) e do
+  **responsável** (quem registrou/aferiu) — dois campos de pessoa
+  distintos, diferente dos demais tipos que só têm responsável.
+- Cada pesagem é **conforme** quando `peso_medido >= gramatura_nominal`
+  (igual à gramatura nominal conta como conforme, sem tolerância
+  abaixo disso). Cada pesagem **não conforme (NC)** é a que ficar
+  abaixo da gramatura nominal.
+- O sistema calcula automaticamente, por registro: total de
+  pesagens, total de NCs e percentual de conformidade.
+- Tela de registro e comportamento de acumular pesagens no navegador
+  antes de um único envio final são idênticos ao PAC 06-D — ver seção
+  acima.
+- O registro é salvo mesmo havendo pesagens fora do padrão.
+- Modelo de dados e regras em `app/tipos/gramatura/models.py`.
+
 ## Estrutura do projeto
 
 ```
@@ -422,8 +447,9 @@ command `pip install -r requirements.txt` e Start command
    registro cadastrado: hoje "🌡️ Temperatura de Processo", "🧊
    Temperatura de Setor/Câmara", "💧 PAC 03-A - Água de
    Abastecimento", "🥩 PAC 04-C - Temperatura dos Produtos", "📦
-   PAC 04-D - Câmaras de Expedição" e "⚖️ PAC 06-D - Monitoramento de
-   Peso". Ao clicar, leva ao formulário daquele tipo.
+   PAC 04-D - Câmaras de Expedição", "⚖️ PAC 06-D - Monitoramento de
+   Peso" e "📏 PAC 06-E - Monitoramento de Gramatura". Ao clicar, leva
+   ao formulário daquele tipo.
 2. **Registro de temperatura** (`/temperatura`) — botões grandes por
    etapa, campo numérico de temperatura, campo de responsável (com
    sugestões dos últimos nomes digitados) e botão "Salvar" grande.
@@ -459,7 +485,14 @@ command `pip install -r requirements.txt` e Start command
    depois de preencher os dois pesos; o botão "Finalizar registro do
    produto" só habilita com pelo menos uma pesagem lançada. Um único
    envio salva o registro do produto e todas as pesagens juntos.
-8. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
+8. **Registro de monitoramento de gramatura** (`/gramatura`) — mesma
+   ideia e mesma tela do PAC 06-D, adaptada: dados do produto (nome,
+   gramatura nominal, operador, responsável) e a mesma seção de
+   pesagens individuais com lista visual verde/vermelho e resumo ao
+   vivo. Aqui não há peso de embalagem — a seção de pesagens libera
+   assim que a gramatura nominal é preenchida, e cada pesagem é
+   comparada direto com ela, sem margem de tolerância.
+9. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
    direto para o painel daquele tipo; com dois ou mais (como hoje),
    mostra uma visão combinada por padrão (cartões de contagem por tipo
    + tabela unificada), com um seletor para entrar no painel completo
@@ -467,18 +500,20 @@ command `pip install -r requirements.txt` e Start command
    longo do tempo com pontos fora do padrão em vermelho — o painel de
    água de abastecimento usa dois eixos Y, um pra pH e outro pra
    Cloro, já que têm faixas e unidades diferentes — e tabela com
-   destaque vermelho nas linhas fora do padrão). No painel de
-   monitoramento de peso, cada ponto do gráfico é uma avaliação de
-   produto (não uma pesagem individual), com o eixo Y mostrando o
-   total de NCs daquela avaliação.
-9. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
-   colunas do tipo em questão, respeitando os filtros aplicados.
-   Linhas fora do padrão vêm destacadas em vermelho na planilha. O
-   monitoramento de peso gera duas abas: um resumo por avaliação de
-   produto ("Peso Produto") e o detalhe de cada pesagem individual
-   ("Peso Produto Detalhe"). Na visão combinada, "Exportar tudo" gera
-   um único arquivo com uma aba por tipo (`/exportar?tipo=todos`,
-   duas abas no caso do monitoramento de peso).
+   destaque vermelho nas linhas fora do padrão). Nos painéis de
+   monitoramento de peso e de gramatura, cada ponto do gráfico é uma
+   avaliação de produto (não uma pesagem individual), com o eixo Y
+   mostrando o total de NCs daquela avaliação.
+10. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
+    colunas do tipo em questão, respeitando os filtros aplicados.
+    Linhas fora do padrão vêm destacadas em vermelho na planilha. O
+    monitoramento de peso e o de gramatura geram duas abas cada: um
+    resumo por avaliação de produto ("Peso Produto"/"Gramatura") e o
+    detalhe de cada pesagem individual ("Peso Produto
+    Detalhe"/"Gramatura Detalhe"). Na visão combinada, "Exportar tudo"
+    gera um único arquivo com uma aba por tipo
+    (`/exportar?tipo=todos`, duas abas para cada um desses dois
+    tipos).
 
 ## Paleta de cores
 
