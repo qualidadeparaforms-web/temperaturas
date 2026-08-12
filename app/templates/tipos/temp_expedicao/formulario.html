@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block titulo %}Registrar Temperatura de Expedição{% endblock %}
+
+{% block conteudo %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <a href="{{ url_for('home.index') }}" class="link-voltar">← Escolher outro tipo de registro</a>
+    <form method="post" action="{{ url_for('temp_expedicao.registrar') }}" id="formRegistroExpedicao" autocomplete="off">
+
+      <h2 class="titulo-secao">1. Local</h2>
+      <div class="row row-cols-1 row-cols-sm-2 g-2 mb-4">
+        {% for local in locais %}
+        <div class="col">
+          <input
+            type="radio"
+            class="btn-check"
+            name="local"
+            id="local-{{ loop.index }}"
+            value="{{ local }}"
+            data-tem-categoria="{{ 'true' if local in locais_com_categoria else 'false' }}"
+            required>
+          <label class="btn-etapa w-100" for="local-{{ loop.index }}">{{ local }}</label>
+        </div>
+        {% endfor %}
+      </div>
+
+      <h2 class="titulo-secao">2. Categoria</h2>
+      <div class="mb-4">
+        <div class="row row-cols-1 row-cols-sm-2 g-2" id="gradeCategoria">
+          {% for categoria in categorias %}
+          <div class="col">
+            <input type="radio" class="btn-check" name="categoria" id="categoria-{{ loop.index }}" value="{{ categoria }}">
+            <label class="btn-etapa w-100" for="categoria-{{ loop.index }}">{{ categoria }}</label>
+          </div>
+          {% endfor %}
+        </div>
+        <p class="text-muted small d-none mb-0" id="categoriaNaoAplicavel">Não se aplica a este local.</p>
+      </div>
+
+      <h2 class="titulo-secao">3. Temperatura (°C)</h2>
+      <div class="mb-4">
+        <input
+          type="number"
+          step="0.1"
+          inputmode="decimal"
+          name="temperatura"
+          id="campoTemperatura"
+          class="form-control form-control-temperatura text-center"
+          placeholder="0.0"
+          required>
+        <div class="form-text">Pode ser negativa (câmaras de congelado).</div>
+      </div>
+
+      <h2 class="titulo-secao">4. Responsável</h2>
+      <div class="mb-4">
+        <input
+          type="text"
+          name="responsavel"
+          id="campoResponsavel"
+          class="form-control form-control-lg"
+          placeholder="Nome de quem está registrando"
+          list="listaResponsaveisExpedicao"
+          required>
+        <datalist id="listaResponsaveisExpedicao">
+          {% for nome in responsaveis %}
+          <option value="{{ nome }}">
+          {% endfor %}
+        </datalist>
+      </div>
+
+      <button type="submit" class="btn btn-salvar w-100">💾 SALVAR</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+  // Lembra o último responsável digitado (chave própria — cada tipo
+  // é isolado, mesmo padrão dos outros tipos já existentes).
+  (function () {
+    const campo = document.getElementById("campoResponsavel");
+    const salvo = localStorage.getItem("ultimoResponsavelExpedicao");
+    if (salvo) {
+      campo.value = salvo;
+    }
+    document.getElementById("formRegistroExpedicao").addEventListener("submit", function () {
+      localStorage.setItem("ultimoResponsavelExpedicao", campo.value);
+    });
+  })();
+
+  // Categoria só se aplica a alguns locais (não a "Matéria Prima -
+  // Quebra de Gelo") — esconde a grade e tira o "required" quando o
+  // local escolhido não usa categoria, e limpa qualquer seleção
+  // anterior pra não sobrar um valor escondido no envio.
+  (function () {
+    const radiosLocal = document.querySelectorAll('input[name="local"]');
+    const gradeCategoria = document.getElementById("gradeCategoria");
+    const categoriaNaoAplicavel = document.getElementById("categoriaNaoAplicavel");
+    const radiosCategoria = document.querySelectorAll('input[name="categoria"]');
+
+    function atualizarCategoria() {
+      const selecionado = document.querySelector('input[name="local"]:checked');
+      const temCategoria = selecionado ? selecionado.dataset.temCategoria === "true" : true;
+      gradeCategoria.classList.toggle("d-none", !temCategoria);
+      categoriaNaoAplicavel.classList.toggle("d-none", temCategoria);
+      radiosCategoria.forEach(function (r) {
+        r.required = temCategoria;
+        if (!temCategoria) r.checked = false;
+      });
+    }
+
+    radiosLocal.forEach(function (r) {
+      r.addEventListener("change", atualizarCategoria);
+    });
+    atualizarCategoria();
+  })();
+</script>
+{% endblock %}

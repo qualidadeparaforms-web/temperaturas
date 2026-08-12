@@ -93,6 +93,27 @@ descritivo, não afeta a conformidade. "Produto" é texto livre (nome
 específico, ex.: "Bife", "Isca") — sem limite de quantos registros por
 dia. Limites fixos em `app/tipos/temp_produto/models.py`.
 
+## Regras de negócio — PAC 04-D - Temperatura dos Produtos nas Câmaras de Expedição
+
+O limite depende da combinação **local + categoria** (aqui sim, ao
+contrário do PAC 04-C, o local também importa):
+
+| Local | Corte | Carne Moída |
+|---|---|---|
+| Câmara de Congelado 1 | -12°C | -18°C |
+| Câmara de Congelado 2 | -12°C | -18°C |
+| Câmara de Resfriados | 7°C | 4°C |
+
+| Local (sem categoria) | Limite |
+|---|---|
+| Matéria Prima - Quebra de Gelo | -8°C |
+
+"Matéria Prima - Quebra de Gelo" é o único local sem o conceito de
+categoria — a tela de registro esconde esse campo dinamicamente
+quando esse local é escolhido (e o backend ignora/zera qualquer valor
+de categoria enviado para ele, por segurança). Limites fixos em
+`app/tipos/temp_expedicao/models.py`.
+
 ## Estrutura do projeto
 
 ```
@@ -376,8 +397,9 @@ command `pip install -r requirements.txt` e Start command
 1. **Início** (`/`) — grade de botões grandes, um por tipo de
    registro cadastrado: hoje "🌡️ Temperatura de Processo", "🧊
    Temperatura de Setor/Câmara", "💧 PAC 03-A - Água de
-   Abastecimento" e "🥩 PAC 04-C - Temperatura dos Produtos". Ao
-   clicar, leva ao formulário daquele tipo.
+   Abastecimento", "🥩 PAC 04-C - Temperatura dos Produtos" e "📦
+   PAC 04-D - Câmaras de Expedição". Ao clicar, leva ao formulário
+   daquele tipo.
 2. **Registro de temperatura** (`/temperatura`) — botões grandes por
    etapa, campo numérico de temperatura, campo de responsável (com
    sugestões dos últimos nomes digitados) e botão "Salvar" grande.
@@ -397,7 +419,12 @@ command `pip install -r requirements.txt` e Start command
    sugestões dos últimos produtos digitados), temperatura numérica. O
    limite de conformidade depende da categoria escolhida (Corte vs.
    Carne Moída), não é fixo. Sem limite de quantos registros por dia.
-6. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
+6. **Registro de temperatura de expedição** (`/temp_expedicao`) —
+   botões pra local (4 câmaras/pontos), e o seletor de categoria
+   aparece ou some dinamicamente dependendo do local escolhido ("Matéria
+   Prima - Quebra de Gelo" não tem categoria). O limite depende da
+   combinação local + categoria. Temperatura aceita negativos.
+7. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
    direto para o painel daquele tipo; com dois ou mais (como hoje),
    mostra uma visão combinada por padrão (cartões de contagem por tipo
    + tabela unificada), com um seletor para entrar no painel completo
@@ -406,7 +433,7 @@ command `pip install -r requirements.txt` e Start command
    água de abastecimento usa dois eixos Y, um pra pH e outro pra
    Cloro, já que têm faixas e unidades diferentes — e tabela com
    destaque vermelho nas linhas fora do padrão).
-7. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
+8. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
    colunas do tipo em questão, respeitando os filtros aplicados.
    Linhas fora do padrão vêm destacadas em vermelho na planilha. Na
    visão combinada, "Exportar tudo" gera um único arquivo com uma aba por
