@@ -62,6 +62,23 @@ Mesma regra de "aviso mas não bloqueia" da Temperatura de Processo.
 Os limites são fixos no código
 (`app/tipos/temperatura_setor/models.py`), não editáveis pela tela.
 
+## Regras de negócio — PAC 03-A - Água de Abastecimento (Cloro e pH)
+
+Dois valores independentes, cada um com sua própria faixa de
+conformidade:
+
+| Medida | Faixa conforme |
+|---|---|
+| pH | 6,0 a 9,0 |
+| Cloro | 0,2 a 5,0 ppm |
+
+Se qualquer um dos dois estiver fora da faixa, o alerta indica **qual**
+(pH, Cloro, ou os dois) — mesma regra de "aviso mas não bloqueia" dos
+outros tipos. O campo "ponto de coleta" é texto livre (com sugestões
+dos 9 pontos usuais via autocompletar, mas sem restringir a digitação
+— na prática é monitorado 1 ponto por dia, em rodízio). Limites fixos
+em `app/tipos/agua_abastecimento/models.py`.
+
 ## Estrutura do projeto
 
 ```
@@ -343,9 +360,9 @@ command `pip install -r requirements.txt` e Start command
 ## Telas
 
 1. **Início** (`/`) — grade de botões grandes, um por tipo de
-   registro cadastrado: hoje "🌡️ Temperatura de Processo" e "🧊
-   Temperatura de Setor/Câmara". Ao clicar, leva ao formulário
-   daquele tipo.
+   registro cadastrado: hoje "🌡️ Temperatura de Processo", "🧊
+   Temperatura de Setor/Câmara" e "💧 PAC 03-A - Água de
+   Abastecimento". Ao clicar, leva ao formulário daquele tipo.
 2. **Registro de temperatura** (`/temperatura`) — botões grandes por
    etapa, campo numérico de temperatura, campo de responsável (com
    sugestões dos últimos nomes digitados) e botão "Salvar" grande.
@@ -356,18 +373,23 @@ command `pip install -r requirements.txt` e Start command
    botões (17 setores é demais pra caber sem rolar a tela toda): a
    busca filtra os botões em tempo real por nome, sem diferenciar
    acento. Temperatura aceita negativos.
-4. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
+4. **Registro de água de abastecimento** (`/agua_abastecimento`) —
+   campo de texto livre pro ponto de coleta (com sugestões dos pontos
+   usuais via autocompletar), campos numéricos de pH e Cloro. O
+   alerta indica especificamente qual dos dois está fora do padrão.
+5. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
    direto para o painel daquele tipo; com dois ou mais (como hoje),
    mostra uma visão combinada por padrão (cartões de contagem por tipo
    + tabela unificada), com um seletor para entrar no painel completo
-   de cada tipo (filtros de período + etapa/setor, cartões de resumo,
-   gráfico ao longo do tempo com pontos fora do padrão em vermelho, e
-   tabela com destaque vermelho nas linhas fora do padrão).
-5. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
-   colunas do tipo em questão (Dia, Horário, Etapa/Setor, Temperatura,
-   Responsável, Conforme), respeitando os filtros aplicados. Linhas
-   fora do padrão vêm destacadas em vermelho na planilha. Na visão
-   combinada, "Exportar tudo" gera um único arquivo com uma aba por
+   de cada tipo (filtros específicos, cartões de resumo, gráfico ao
+   longo do tempo com pontos fora do padrão em vermelho — o painel de
+   água de abastecimento usa dois eixos Y, um pra pH e outro pra
+   Cloro, já que têm faixas e unidades diferentes — e tabela com
+   destaque vermelho nas linhas fora do padrão).
+6. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
+   colunas do tipo em questão, respeitando os filtros aplicados.
+   Linhas fora do padrão vêm destacadas em vermelho na planilha. Na
+   visão combinada, "Exportar tudo" gera um único arquivo com uma aba por
    tipo (`/exportar?tipo=todos`).
 
 ## Paleta de cores

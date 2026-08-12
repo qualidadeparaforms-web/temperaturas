@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block titulo %}Registrar Água de Abastecimento{% endblock %}
+
+{% block conteudo %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <a href="{{ url_for('home.index') }}" class="link-voltar">← Escolher outro tipo de registro</a>
+    <form method="post" action="{{ url_for('agua_abastecimento.registrar') }}" id="formRegistroAgua" autocomplete="off">
+
+      <h2 class="titulo-secao">1. Ponto de coleta</h2>
+      <div class="mb-4">
+        <input
+          type="text"
+          name="ponto"
+          id="campoPonto"
+          class="form-control form-control-lg"
+          placeholder="Ex.: Sala de Cortes"
+          list="listaPontos"
+          required>
+        <datalist id="listaPontos">
+          {% for ponto in pontos_sugeridos %}
+          <option value="{{ ponto }}">
+          {% endfor %}
+        </datalist>
+        <div class="form-text">Digite livremente — a lista é só sugestão dos pontos usuais.</div>
+      </div>
+
+      <h2 class="titulo-secao">2. pH</h2>
+      <div class="mb-4">
+        <input
+          type="number"
+          step="0.01"
+          inputmode="decimal"
+          name="ph"
+          id="campoPh"
+          class="form-control form-control-temperatura text-center"
+          placeholder="0.0"
+          required>
+        <div class="form-text">Padrão: entre 6,0 e 9,0</div>
+      </div>
+
+      <h2 class="titulo-secao">3. Cloro (ppm)</h2>
+      <div class="mb-4">
+        <input
+          type="number"
+          step="0.01"
+          inputmode="decimal"
+          name="cloro"
+          id="campoCloro"
+          class="form-control form-control-temperatura text-center"
+          placeholder="0.0"
+          required>
+        <div class="form-text">Padrão: entre 0,2 e 5,0 ppm</div>
+      </div>
+
+      <h2 class="titulo-secao">4. Responsável</h2>
+      <div class="mb-4">
+        <input
+          type="text"
+          name="responsavel"
+          id="campoResponsavel"
+          class="form-control form-control-lg"
+          placeholder="Nome de quem está registrando"
+          list="listaResponsaveisAgua"
+          required>
+        <datalist id="listaResponsaveisAgua">
+          {% for nome in responsaveis %}
+          <option value="{{ nome }}">
+          {% endfor %}
+        </datalist>
+      </div>
+
+      <button type="submit" class="btn btn-salvar w-100">💾 SALVAR</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+  // Lembra o último responsável digitado (chave própria — cada tipo
+  // é isolado, mesmo padrão dos outros tipos já existentes).
+  (function () {
+    const campo = document.getElementById("campoResponsavel");
+    const salvo = localStorage.getItem("ultimoResponsavelAgua");
+    if (salvo) {
+      campo.value = salvo;
+    }
+    document.getElementById("formRegistroAgua").addEventListener("submit", function () {
+      localStorage.setItem("ultimoResponsavelAgua", campo.value);
+    });
+  })();
+</script>
+{% endblock %}
