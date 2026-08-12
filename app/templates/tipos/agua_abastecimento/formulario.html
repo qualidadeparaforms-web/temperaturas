@@ -7,22 +7,14 @@
     <a href="{{ url_for('home.index') }}" class="link-voltar">← Escolher outro tipo de registro</a>
     <form method="post" action="{{ url_for('agua_abastecimento.registrar') }}" id="formRegistroAgua" autocomplete="off">
 
-      <h2 class="titulo-secao">1. Ponto de coleta</h2>
-      <div class="mb-4">
-        <input
-          type="text"
-          name="ponto"
-          id="campoPonto"
-          class="form-control form-control-lg"
-          placeholder="Ex.: Sala de Cortes"
-          list="listaPontos"
-          required>
-        <datalist id="listaPontos">
-          {% for ponto in pontos_sugeridos %}
-          <option value="{{ ponto }}">
-          {% endfor %}
-        </datalist>
-        <div class="form-text">Digite livremente — a lista é só sugestão dos pontos usuais.</div>
+      <h2 class="titulo-secao">1. Selecione o ponto de coleta</h2>
+      <div class="row row-cols-2 row-cols-md-3 g-2 mb-4">
+        {% for ponto in pontos %}
+        <div class="col">
+          <input type="radio" class="btn-check" name="ponto" id="ponto-{{ loop.index }}" value="{{ ponto }}" required>
+          <label class="btn-etapa w-100" for="ponto-{{ loop.index }}">{{ ponto }}</label>
+        </div>
+        {% endfor %}
       </div>
 
       <h2 class="titulo-secao">2. pH</h2>

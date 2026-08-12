@@ -4,7 +4,7 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from app.backup_utils import agendar_backup_apos_registro
 from app.extensions import db
-from app.tipos.agua_abastecimento.models import PONTOS_SUGERIDOS, RegistroAguaAbastecimento
+from app.tipos.agua_abastecimento.models import PONTOS, RegistroAguaAbastecimento
 
 formulario_bp = Blueprint("agua_abastecimento", __name__, url_prefix="/agua_abastecimento")
 
@@ -22,7 +22,7 @@ def index():
     responsaveis = [r[0] for r in recentes]
     return render_template(
         "tipos/agua_abastecimento/formulario.html",
-        pontos_sugeridos=PONTOS_SUGERIDOS,
+        pontos=PONTOS,
         responsaveis=responsaveis,
     )
 
@@ -35,8 +35,8 @@ def registrar():
     responsavel = (request.form.get("responsavel") or "").strip()
 
     erros = []
-    if not ponto:
-        erros.append("Informe o ponto de coleta.")
+    if ponto not in PONTOS:
+        erros.append("Selecione um ponto de coleta válido.")
 
     ph = None
     if not ph_raw:

@@ -74,10 +74,10 @@ conformidade:
 
 Se qualquer um dos dois estiver fora da faixa, o alerta indica **qual**
 (pH, Cloro, ou os dois) — mesma regra de "aviso mas não bloqueia" dos
-outros tipos. O campo "ponto de coleta" é texto livre (com sugestões
-dos 9 pontos usuais via autocompletar, mas sem restringir a digitação
-— na prática é monitorado 1 ponto por dia, em rodízio). Limites fixos
-em `app/tipos/agua_abastecimento/models.py`.
+outros tipos. O "ponto de coleta" é selecionado por botões, entre 9
+pontos fixos (mesmo padrão de etapa/setor dos outros tipos) — na
+prática é monitorado 1 ponto por dia, em rodízio entre eles. Limites
+fixos em `app/tipos/agua_abastecimento/models.py`.
 
 ## Estrutura do projeto
 
@@ -374,9 +374,9 @@ command `pip install -r requirements.txt` e Start command
    busca filtra os botões em tempo real por nome, sem diferenciar
    acento. Temperatura aceita negativos.
 4. **Registro de água de abastecimento** (`/agua_abastecimento`) —
-   campo de texto livre pro ponto de coleta (com sugestões dos pontos
-   usuais via autocompletar), campos numéricos de pH e Cloro. O
-   alerta indica especificamente qual dos dois está fora do padrão.
+   botões grandes pro ponto de coleta (9 pontos fixos, mesmo padrão de
+   etapa/setor), campos numéricos de pH e Cloro. O alerta indica
+   especificamente qual dos dois está fora do padrão.
 5. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
    direto para o painel daquele tipo; com dois ou mais (como hoje),
    mostra uma visão combinada por padrão (cartões de contagem por tipo

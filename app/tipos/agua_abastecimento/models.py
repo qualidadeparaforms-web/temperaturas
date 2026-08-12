@@ -8,10 +8,10 @@ PH_MAX = 9.0
 CLORO_MIN = 0.2
 CLORO_MAX = 5.0
 
-# Só sugestões de digitação (datalist) — o campo "ponto" é texto
-# livre, não restrito a esta lista. Na prática é monitorado 1 ponto
-# por dia, em rodízio entre estes.
-PONTOS_SUGERIDOS = [
+# Pontos de coleta — lista fixa, selecionada por botões na tela de
+# registro (mesmo padrão de ETAPAS/SETORES dos outros tipos). Na
+# prática é monitorado 1 ponto por dia, em rodízio entre estes.
+PONTOS = [
     "Sala de Cortes",
     "Lavação de Caixas",
     "Lavação de Utensílios",
