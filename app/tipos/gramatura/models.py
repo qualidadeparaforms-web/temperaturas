@@ -81,7 +81,16 @@ class PesagemIndividualGramatura(db.Model):
     def conforme(self) -> bool:
         """NC (não conforme) quando o peso medido cai fora da faixa
         [gramatura_minima, gramatura_maxima] do registro — qualquer
-        valor abaixo do mínimo ou acima do máximo é NC."""
+        valor abaixo do mínimo ou acima do máximo é NC.
+
+        Registros legados (criados antes da faixa mín/máx existir e
+        migrados automaticamente sem dado histórico pra preencher —
+        ver _migrar_colunas_faltantes em app/__init__.py) ficam com
+        gramatura_minima/gramatura_maxima nulos. Tratados como NC por
+        segurança: sem um padrão de referência, não dá pra confirmar
+        conformidade."""
+        if self.registro.gramatura_minima is None or self.registro.gramatura_maxima is None:
+            return False
         return self.registro.gramatura_minima <= self.peso_medido <= self.registro.gramatura_maxima
 
     def to_dict(self) -> dict:

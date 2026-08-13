@@ -62,7 +62,7 @@
           <td>${r.data}</td>
           <td>${r.horario}</td>
           <td>${r.produto}</td>
-          <td>${r.gramatura_minima}–${r.gramatura_maxima}</td>
+          <td>${r.gramatura_minima ?? "?"}–${r.gramatura_maxima ?? "?"}</td>
           <td>${r.operador}</td>
           <td>${r.total_pesagens}</td>
           <td>${r.total_nc}</td>
