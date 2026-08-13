@@ -3,6 +3,7 @@
   --azul: #2E75B6;
   --amarelo: #FFF2CC;
   --vermelho: #C00000;
+  --verde: #2E7D32;
 }
 
 body {
@@ -178,7 +179,7 @@ body {
 }
 
 .alert-success.alerta-grande {
-  border-color: #2e7d32;
+  border-color: var(--verde);
 }
 
 /* ---------- Painel / dashboard ---------- */
@@ -302,4 +303,64 @@ body {
   border-radius: 12px;
   padding: 1rem;
   border: 1px solid #dee2e6;
+}
+
+/* ---------- Checklist de PSOs (PAC 11) ---------- */
+
+.item-pso {
+  background: #fff;
+  border: 2px solid #dee2e6;
+  border-radius: 12px;
+  padding: 0.9rem 1rem 1rem;
+}
+
+.item-pso-nome {
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 0.6rem;
+}
+
+.btn-status {
+  /* Mesmo motivo do .btn-etapa (ver comentário acima): não usa a
+     classe "btn" do Bootstrap, pra evitar que ".btn-check:checked +
+     .btn" ganhe o empate de especificidade e anule o destaque. */
+  min-height: 64px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+  background-color: #fff;
+  border: 3px solid;
+  transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out;
+}
+
+.btn-status-c {
+  color: var(--verde);
+  border-color: var(--verde);
+}
+
+.btn-check:checked + .btn-status-c {
+  background-color: var(--verde);
+  color: #fff;
+}
+
+.btn-status-nc {
+  color: var(--vermelho);
+  border-color: var(--vermelho);
+}
+
+.btn-check:checked + .btn-status-nc {
+  background-color: var(--vermelho);
+  color: #fff;
+}
+
+.btn-check:focus-visible + .btn-status {
+  outline: 3px solid var(--navy);
+  outline-offset: 2px;
 }

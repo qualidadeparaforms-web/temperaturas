@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block titulo %}Registrar Monitoramento dos PSOs{% endblock %}
+
+{% block conteudo %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <a href="{{ url_for('home.index') }}" class="link-voltar">← Escolher outro tipo de registro</a>
+    <form method="post" action="{{ url_for('pso.registrar') }}" id="formPso" autocomplete="off">
+
+      <h2 class="titulo-secao">1. Checklist dos PSOs do dia</h2>
+      {% for pso in psos %}
+      <div class="item-pso mb-3">
+        <div class="item-pso-nome">{{ pso }}</div>
+        <div class="row g-2">
+          <div class="col-6">
+            <input
+              type="radio"
+              class="btn-check"
+              name="status_{{ loop.index0 }}"
+              id="c_{{ loop.index0 }}"
+              value="C"
+              required>
+            <label class="btn-status btn-status-c w-100" for="c_{{ loop.index0 }}">✅ C</label>
+          </div>
+          <div class="col-6">
+            <input
+              type="radio"
+              class="btn-check"
+              name="status_{{ loop.index0 }}"
+              id="nc_{{ loop.index0 }}"
+              value="NC"
+              required>
+            <label class="btn-status btn-status-nc w-100" for="nc_{{ loop.index0 }}">⚠️ NC</label>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+
+      <h2 class="titulo-secao">2. Responsável (Monitor)</h2>
+      <div class="mb-4">
+        <input
+          type="text"
+          name="responsavel"
+          id="campoResponsavel"
+          class="form-control form-control-lg"
+          placeholder="Nome do Monitor"
+          list="listaResponsaveisPso"
+          required>
+        <datalist id="listaResponsaveisPso">
+          {% for nome in responsaveis %}
+          <option value="{{ nome }}">
+          {% endfor %}
+        </datalist>
+      </div>
+
+      <button type="submit" class="btn btn-salvar w-100">💾 SALVAR CHECKLIST</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+  (function () {
+    const campoResponsavel = document.getElementById("campoResponsavel");
+    const salvo = localStorage.getItem("ultimoResponsavelPso");
+    if (salvo) {
+      campoResponsavel.value = salvo;
+    }
+
+    document.getElementById("formPso").addEventListener("submit", function () {
+      localStorage.setItem("ultimoResponsavelPso", campoResponsavel.value);
+    });
+  })();
+</script>
+{% endblock %}

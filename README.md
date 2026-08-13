@@ -164,6 +164,29 @@ bifes/cubos soltos, comparados direto com uma **faixa de gramatura**
 - O registro é salvo mesmo havendo pesagens fora do padrão.
 - Modelo de dados e regras em `app/tipos/gramatura/models.py`.
 
+## Regras de negócio — PAC 11 - Monitoramento dos PSO's (Procedimentos Sanitários Operacionais)
+
+Bem mais simples que os demais: um checklist diário com 7 PSOs
+fixos, cada um avaliado só como Conforme (C) ou Não Conforme (NC) —
+sem número, sem observação. Um checklist salvo gera **7 linhas** na
+tabela `registros_pso` (uma por PSO), todas com a mesma data e o
+mesmo responsável (o "Monitor" do dia).
+
+- Lista fixa dos 7 PSOs, em `app/tipos/pso/models.py`: PSO 1 a PSO 6
+  e PSO 8 — **não existe PSO 7** nesta lista (numeração do
+  procedimento original, mantida como está).
+- Não há limite numérico nem cálculo: o status de cada PSO é
+  informado diretamente pelo usuário (C ou NC), não derivado de uma
+  medição.
+- Um checklist pode ser enviado mais de uma vez no mesmo dia (ex.:
+  correção) — assim como os demais tipos, o sistema sempre registra,
+  nunca bloqueia ou sobrescreve o registro anterior. Na exportação em
+  matriz (ver abaixo), quando há mais de um registro do mesmo PSO no
+  mesmo dia, o mais recente é o que aparece na célula.
+- Diferente de todos os outros tipos, este não tem campo de
+  `horario` — só `data` (é um checklist diário, não uma medição
+  pontual ao longo do dia).
+
 ## Estrutura do projeto
 
 ```
@@ -461,8 +484,9 @@ command `pip install -r requirements.txt` e Start command
    Temperatura de Setor/Câmara", "💧 PAC 03-A - Água de
    Abastecimento", "🥩 PAC 04-C - Temperatura dos Produtos", "📦
    PAC 04-D - Câmaras de Expedição", "⚖️ PAC 06-D - Monitoramento de
-   Peso" e "📏 PAC 06-E - Monitoramento de Gramatura". Ao clicar, leva
-   ao formulário daquele tipo.
+   Peso", "📏 PAC 06-E - Monitoramento de Gramatura" e "🧼 PAC 11 -
+   Monitoramento dos PSO's". Ao clicar, leva ao formulário daquele
+   tipo.
 2. **Registro de temperatura** (`/temperatura`) — botões grandes por
    etapa, campo numérico de temperatura, campo de responsável (com
    sugestões dos últimos nomes digitados) e botão "Salvar" grande.
@@ -506,25 +530,38 @@ command `pip install -r requirements.txt` e Start command
    seção de pesagens libera assim que a faixa (mínima e máxima) é
    preenchida, e cada pesagem é comparada com ela: qualquer valor
    fora da faixa é NC.
-9. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
-   direto para o painel daquele tipo; com dois ou mais (como hoje),
-   mostra uma visão combinada por padrão (cartões de contagem por tipo
-   + tabela unificada), com um seletor para entrar no painel completo
-   de cada tipo (filtros específicos, cartões de resumo, gráfico ao
-   longo do tempo com pontos fora do padrão em vermelho — o painel de
-   água de abastecimento usa dois eixos Y, um pra pH e outro pra
-   Cloro, já que têm faixas e unidades diferentes — e tabela com
-   destaque vermelho nas linhas fora do padrão). Nos painéis de
-   monitoramento de peso e de gramatura, cada ponto do gráfico é uma
-   avaliação de produto (não uma pesagem individual), com o eixo Y
-   mostrando o total de NCs daquela avaliação.
-10. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
+9. **Registro de monitoramento dos PSOs** (`/pso`) — checklist com os
+   7 PSOs fixos, cada um com um par de botões grandes "✅ C" (verde) e
+   "⚠️ NC" (vermelho), seguido do campo Responsável (Monitor). O
+   navegador exige uma seleção (C ou NC) em cada um dos 7 antes de
+   deixar enviar; um único envio salva o status dos 7 PSOs do dia de
+   uma vez.
+10. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
+    direto para o painel daquele tipo; com dois ou mais (como hoje),
+    mostra uma visão combinada por padrão (cartões de contagem por tipo
+    + tabela unificada), com um seletor para entrar no painel completo
+    de cada tipo (filtros específicos, cartões de resumo, gráfico ao
+    longo do tempo com pontos fora do padrão em vermelho — o painel de
+    água de abastecimento usa dois eixos Y, um pra pH e outro pra
+    Cloro, já que têm faixas e unidades diferentes — e tabela com
+    destaque vermelho nas linhas fora do padrão). Nos painéis de
+    monitoramento de peso e de gramatura, cada ponto do gráfico é uma
+    avaliação de produto (não uma pesagem individual), com o eixo Y
+    mostrando o total de NCs daquela avaliação. No painel do PAC 11,
+    cada PSO é uma linha no gráfico, com um filtro adicional pra
+    isolar o histórico de um PSO específico e identificar se algum é
+    recorrente em NC — como não há horário, o eixo X é só por dia.
+11. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
     colunas do tipo em questão, respeitando os filtros aplicados.
     Linhas fora do padrão vêm destacadas em vermelho na planilha. O
     monitoramento de peso e o de gramatura geram duas abas cada: um
     resumo por avaliação de produto ("Peso Produto"/"Gramatura") e o
     detalhe de cada pesagem individual ("Peso Produto
-    Detalhe"/"Gramatura Detalhe"). Na visão combinada, "Exportar tudo"
+    Detalhe"/"Gramatura Detalhe"). O PAC 11 gera uma aba no formato de
+    matriz original: PSOs nas linhas (sempre os 7), um dia do período
+    por coluna, C/NC em cada célula (NC destacado em vermelho) — esse
+    formato ignora o filtro de PSO do painel de propósito, pra sempre
+    mostrar o checklist completo. Na visão combinada, "Exportar tudo"
     gera um único arquivo com uma aba por tipo
     (`/exportar?tipo=todos`, duas abas para cada um desses dois
     tipos).
@@ -537,3 +574,4 @@ command `pip install -r requirements.txt` e Start command
 | Azul | `#2E75B6` | Botões de etapa, destaques primários |
 | Amarelo | `#FFF2CC` | Fundo de avisos |
 | Vermelho | `#C00000` | Destaque de registros fora do padrão |
+| Verde | `#2E7D32` | Botão "C" (conforme) do checklist de PSOs (PAC 11) |
