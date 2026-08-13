@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Registros</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📋</text></svg>">
+  <!-- Reforço sem JS: se o navegador não rodar o script abaixo por
+       qualquer motivo, este meta-refresh garante que a tela não fique
+       travada na splash. -->
+  <meta http-equiv="refresh" content="4;url={{ url_for('home.index') }}">
+  <style>
+    :root {
+      --navy: #1F3864;
+      --azul: #2E75B6;
+      --amarelo: #FFF2CC;
+      --vermelho: #C00000;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+
+    body {
+      background-color: var(--navy);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+    }
+
+    .splash {
+      text-align: center;
+      opacity: 0;
+      transform: translateY(10px);
+      animation: aparecer 1.1s ease-out forwards;
+      padding: 1.5rem;
+    }
+
+    .logo-cartao {
+      display: inline-block;
+      background: #fff;
+      border-radius: 20px;
+      padding: 1.5rem 2rem 1.25rem;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+    }
+
+    .logo-cartao svg {
+      display: block;
+      width: min(64vw, 260px);
+      height: auto;
+    }
+
+    .logo-texto {
+      display: block;
+      margin-top: 0.35rem;
+      font-size: min(9vw, 2.5rem);
+      font-weight: 800;
+      letter-spacing: 0.01em;
+      background: linear-gradient(90deg, #7A1E12 0%, #C00000 30%, #E8531B 55%, #C00000 78%, #7A1E12 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      color: var(--vermelho);
+    }
+
+    .subtitulo {
+      margin-top: 1.75rem;
+      color: var(--amarelo);
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .rodape {
+      margin-top: 0.35rem;
+      color: rgba(255, 255, 255, 0.75);
+      font-size: 0.95rem;
+    }
+
+    .barra-progresso {
+      margin: 1.75rem auto 0;
+      width: min(70vw, 220px);
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.18);
+      overflow: hidden;
+    }
+
+    .barra-progresso .preenchimento {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--azul), var(--amarelo));
+      border-radius: 999px;
+      animation: preencher 3.6s linear forwards;
+    }
+
+    @keyframes aparecer {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes preencher {
+      from {
+        width: 0%;
+      }
+      to {
+        width: 100%;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .splash {
+        animation: none;
+        opacity: 1;
+        transform: none;
+      }
+      .barra-progresso .preenchimento {
+        animation: none;
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="splash">
+    <div class="logo-cartao">
+      <!-- Recriação do logo da Resplendor Alimentos (leque de raios +
+           "Resplendor") como SVG — ver comentário em app/routes/home.py
+           sobre a origem deste arquivo. -->
+      <svg viewBox="0 0 400 230" role="img" aria-label="Resplendor Alimentos">
+        <defs>
+          <linearGradient id="raioGrad" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stop-color="#FFF3C4"/>
+            <stop offset="18%" stop-color="#FDB913"/>
+            <stop offset="48%" stop-color="#E8531B"/>
+            <stop offset="100%" stop-color="#C00000"/>
+          </linearGradient>
+          <radialGradient id="brilhoGrad" cx="50%" cy="100%" r="65%">
+            <stop offset="0%" stop-color="#FFF6D6" stop-opacity="0.95"/>
+            <stop offset="55%" stop-color="#FDB913" stop-opacity="0.30"/>
+            <stop offset="100%" stop-color="#FDB913" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <g transform="translate(200,206)">
+          <circle r="90" fill="url(#brilhoGrad)"/>
+          <g fill="url(#raioGrad)">
+            <path d="M -7,0 C -9,-38 -12,-84 -9,-132 Q 0,-162 9,-132 C 12,-84 9,-38 7,0 Z" transform="rotate(-96)"/>
+            <path d="M -7,0 C -9,-40 -13,-90 -10,-142 Q 0,-174 10,-142 C 13,-90 9,-40 7,0 Z" transform="rotate(-77)"/>
+            <path d="M -7,0 C -9,-42 -13,-94 -10,-148 Q 0,-180 10,-148 C 13,-94 9,-42 7,0 Z" transform="rotate(-58)"/>
+            <path d="M -7,0 C -9,-43 -13,-97 -10,-152 Q 0,-184 10,-152 C 13,-97 9,-43 7,0 Z" transform="rotate(-39)"/>
+            <path d="M -7,0 C -9,-44 -13,-99 -10,-155 Q 0,-187 10,-155 C 13,-99 9,-44 7,0 Z" transform="rotate(-20)"/>
+            <path d="M -7,0 C -9,-44 -13,-100 -10,-157 Q 0,-189 10,-157 C 13,-100 9,-44 7,0 Z" transform="rotate(0)"/>
+            <path d="M -7,0 C -9,-44 -13,-99 -10,-155 Q 0,-187 10,-155 C 13,-99 9,-44 7,0 Z" transform="rotate(20)"/>
+            <path d="M -7,0 C -9,-43 -13,-97 -10,-152 Q 0,-184 10,-152 C 13,-97 9,-43 7,0 Z" transform="rotate(39)"/>
+            <path d="M -7,0 C -9,-42 -13,-94 -10,-148 Q 0,-180 10,-148 C 13,-94 9,-42 7,0 Z" transform="rotate(58)"/>
+            <path d="M -7,0 C -9,-40 -13,-90 -10,-142 Q 0,-174 10,-142 C 13,-90 9,-40 7,0 Z" transform="rotate(77)"/>
+            <path d="M -7,0 C -9,-38 -12,-84 -9,-132 Q 0,-162 9,-132 C 12,-84 9,-38 7,0 Z" transform="rotate(96)"/>
+          </g>
+        </g>
+      </svg>
+      <span class="logo-texto">Resplendor</span>
+    </div>
+    <div class="subtitulo">Sistema de Controle de Qualidade</div>
+    <div class="rodape">Inicializando…</div>
+    <div class="barra-progresso"><div class="preenchimento"></div></div>
+  </div>
+
+  <script>
+    setTimeout(function () {
+      window.location.replace("{{ url_for('home.index') }}");
+    }, 3600);
+  </script>
+</body>
+</html>

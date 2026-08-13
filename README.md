@@ -232,7 +232,7 @@ temperaturas/
 │   ├── extensions.py         # instância do SQLAlchemy
 │   ├── backup_utils.py       # dispara backup em segundo plano após salvar (todos os tipos)
 │   ├── routes/
-│   │   ├── home.py           # tela inicial — grade com um botão por tipo de registro
+│   │   ├── home.py           # "/" splash de abertura + "/inicio" grade com um botão por tipo de registro
 │   │   ├── dashboard.py      # painel: decide entre o painel de um tipo específico ou a visão combinada
 │   │   └── backup.py         # endpoint HTTP protegido para disparar backup
 │   ├── tipos/                # um pacote por tipo de registro — ver seção abaixo
@@ -243,7 +243,8 @@ temperaturas/
 │   │       ├── formulario.py    # tela de registro (tablet)
 │   │       └── dashboard.py      # painel, API de dados e exportação Excel deste tipo
 │   ├── templates/
-│   │   ├── home.html          # tela inicial
+│   │   ├── splash.html        # tela de splash/abertura (autocontida, sem base.html)
+│   │   ├── home.html          # tela inicial (grade de tipos)
 │   │   ├── dashboard_combinado.html  # visão combinada (2+ tipos)
 │   │   └── tipos/temperatura/  # templates específicos do tipo
 │   └── static/
@@ -262,7 +263,7 @@ temperaturas/
 
 Cada "planilha" (Temperatura de Processo, e futuras) é um **tipo de
 registro** — um pacote isolado em `app/tipos/<slug>/` com sua própria
-tabela, formulário e painel. A tela inicial (`/`) e o painel
+tabela, formulário e painel. A tela inicial (`/inicio`) e o painel
 (`/dashboard`) são genéricos: eles descobrem os tipos disponíveis
 automaticamente a partir de um registro central
 (`app/tipos/base.py`), sem precisar saber de antemão quais tipos
@@ -322,8 +323,9 @@ pip install -r requirements.txt
 python wsgi.py
 ```
 
-Acesse `http://localhost:5000` (tela inicial, escolha do tipo de
-registro) e `http://localhost:5000/dashboard` (painel). O banco
+Acesse `http://localhost:5000` (splash de abertura, redireciona
+sozinha em alguns segundos para `/inicio` — a tela de escolha do
+tipo de registro) e `http://localhost:5000/dashboard` (painel). O banco
 `instance/temperaturas.db` é criado automaticamente no primeiro acesso.
 
 ## Fuso horário
@@ -515,39 +517,54 @@ command `pip install -r requirements.txt` e Start command
 
 ## Telas
 
-1. **Início** (`/`) — grade de botões grandes, um por tipo de
+1. **Splash de abertura** (`/`) — a primeira coisa que aparece ao
+   acessar a URL do sistema: fundo navy, o logo da Resplendor
+   Alimentos com um leve fade-in, o texto "Sistema de Controle de
+   Qualidade" e uma barra de progresso decorativa. Puramente
+   estática — depois de ~3,6s redireciona sozinha (via JS, com
+   `<meta http-equiv="refresh">` de reforço caso o JS não rode) para
+   a tela de início (`/inicio`). Página autocontida (não estende
+   `base.html`, sem navbar) — ver `app/templates/splash.html`. O logo
+   é um SVG desenhado à mão (leque de raios + "Resplendor"), recriado
+   visualmente a partir da imagem enviada no chat — sem acesso ao
+   arquivo original nesse ambiente, não dava pra usá-lo direto; troque
+   o `<svg>` no template pelo arquivo oficial quando for conveniente,
+   se quiser fidelidade exata ao logo real.
+2. **Início** (`/inicio`) — grade de botões grandes, um por tipo de
    registro cadastrado: hoje "🌡️ Temperatura de Processo", "🧊
    Temperatura de Setor/Câmara", "💧 PAC 03-A - Água de
    Abastecimento", "🥩 PAC 04-C - Temperatura dos Produtos", "📦
    PAC 04-D - Câmaras de Expedição", "⚖️ PAC 06-D - Monitoramento de
    Peso", "📏 PAC 06-E - Monitoramento de Gramatura", "🧼 PAC 11 -
    Monitoramento dos PSO's" e "🪡 PAC 17 - Integridade de Componentes
-   de Máquinas". Ao clicar, leva ao formulário daquele tipo.
-2. **Registro de temperatura** (`/temperatura`) — botões grandes por
+   de Máquinas". Ao clicar, leva ao formulário daquele tipo. O link
+   "Início" da barra de navegação sempre aponta direto pra cá — a
+   splash só aparece uma vez, ao acessar a URL raiz.
+3. **Registro de temperatura** (`/temperatura`) — botões grandes por
    etapa, campo numérico de temperatura, campo de responsável (com
    sugestões dos últimos nomes digitados) e botão "Salvar" grande.
    Mostra alerta de sucesso ou de "fora do padrão" imediatamente após
    salvar.
-3. **Registro de temperatura de setor/câmara** (`/temperatura_setor`)
+4. **Registro de temperatura de setor/câmara** (`/temperatura_setor`)
    — mesma ideia, mas com um campo de busca no lugar da grade fixa de
    botões (17 setores é demais pra caber sem rolar a tela toda): a
    busca filtra os botões em tempo real por nome, sem diferenciar
    acento. Temperatura aceita negativos.
-4. **Registro de água de abastecimento** (`/agua_abastecimento`) —
+5. **Registro de água de abastecimento** (`/agua_abastecimento`) —
    botões grandes pro ponto de coleta (9 pontos fixos, mesmo padrão de
    etapa/setor), campos numéricos de pH e Cloro. O alerta indica
    especificamente qual dos dois está fora do padrão.
-5. **Registro de temperatura de produto** (`/temp_produto`) — botões
+6. **Registro de temperatura de produto** (`/temp_produto`) — botões
    pra local e categoria, campo de texto pro nome do produto (com
    sugestões dos últimos produtos digitados), temperatura numérica. O
    limite de conformidade depende da categoria escolhida (Corte vs.
    Carne Moída), não é fixo. Sem limite de quantos registros por dia.
-6. **Registro de temperatura de expedição** (`/temp_expedicao`) —
+7. **Registro de temperatura de expedição** (`/temp_expedicao`) —
    botões pra local (4 câmaras/pontos), e o seletor de categoria
    aparece ou some dinamicamente dependendo do local escolhido ("Matéria
    Prima - Quebra de Gelo" não tem categoria). O limite depende da
    combinação local + categoria. Temperatura aceita negativos.
-7. **Registro de monitoramento de peso** (`/peso_produto`) — dados do
+8. **Registro de monitoramento de peso** (`/peso_produto`) — dados do
    produto (nome, peso líquido nominal, peso da embalagem,
    responsável) e, em seguida, uma seção pra ir lançando pesagens
    individuais uma a uma (campo numérico + botão "+ Adicionar"): cada
@@ -558,7 +575,7 @@ command `pip install -r requirements.txt` e Start command
    depois de preencher os dois pesos; o botão "Finalizar registro do
    produto" só habilita com pelo menos uma pesagem lançada. Um único
    envio salva o registro do produto e todas as pesagens juntos.
-8. **Registro de monitoramento de gramatura** (`/gramatura`) — mesma
+9. **Registro de monitoramento de gramatura** (`/gramatura`) — mesma
    ideia e mesma tela do PAC 06-D, adaptada: dados do produto (nome,
    faixa de gramatura mínima e máxima, operador, responsável) e a
    mesma seção de pesagens individuais com lista visual
@@ -566,13 +583,13 @@ command `pip install -r requirements.txt` e Start command
    seção de pesagens libera assim que a faixa (mínima e máxima) é
    preenchida, e cada pesagem é comparada com ela: qualquer valor
    fora da faixa é NC.
-9. **Registro de monitoramento dos PSOs** (`/pso`) — checklist com os
-   7 PSOs fixos, cada um com um par de botões grandes "✅ C" (verde) e
-   "⚠️ NC" (vermelho), seguido do campo Responsável (Monitor). O
-   navegador exige uma seleção (C ou NC) em cada um dos 7 antes de
-   deixar enviar; um único envio salva o status dos 7 PSOs do dia de
-   uma vez.
-10. **Registro de integridade de componentes** (`/integridade_componente`)
+10. **Registro de monitoramento dos PSOs** (`/pso`) — checklist com os
+    7 PSOs fixos, cada um com um par de botões grandes "✅ C" (verde) e
+    "⚠️ NC" (vermelho), seguido do campo Responsável (Monitor). O
+    navegador exige uma seleção (C ou NC) em cada um dos 7 antes de
+    deixar enviar; um único envio salva o status dos 7 PSOs do dia de
+    uma vez.
+11. **Registro de integridade de componentes** (`/integridade_componente`)
     — escolha do equipamento (3 botões, cada um com o nome do
     componente entre parênteses), momento da checagem (a opção
     "Troca de Lâminas" só aparece pra Máquina de Cubos e Iscas),
@@ -580,13 +597,13 @@ command `pip install -r requirements.txt` e Start command
     registrar depois), status C/NC (mesmo par de botões verde/vermelho
     do PAC 11) e responsável. O alerta de NC destaca o risco de
     contaminação física do produto.
-11. **Verificação RT** (`/integridade_componente/verificacao-rt`, com
+12. **Verificação RT** (`/integridade_componente/verificacao-rt`, com
     atalho fixo "⚡ Verificação RT" na barra de navegação — a única
     ação disponível em qualquer tela do sistema) — três botões, um
     por equipamento; tocar em um já salva a data/hora e o
     equipamento, sem formulário. Mostra as verificações já feitas
     hoje logo abaixo, como confirmação visual.
-12. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
+13. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
     direto para o painel daquele tipo; com dois ou mais (como hoje),
     mostra uma visão combinada por padrão (cartões de contagem por tipo
     + tabela unificada), com um seletor para entrar no painel completo
@@ -605,7 +622,7 @@ command `pip install -r requirements.txt` e Start command
     equipamento e uma linha por equipamento no gráfico; a tela de
     Verificação RT não tem painel próprio (é só um log rápido, sem
     conceito de conformidade).
-13. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
+14. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
     colunas do tipo em questão, respeitando os filtros aplicados.
     Linhas fora do padrão vêm destacadas em vermelho na planilha. O
     monitoramento de peso e o de gramatura geram duas abas cada: um
