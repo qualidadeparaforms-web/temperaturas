@@ -232,11 +232,11 @@ temperaturas/
 │   ├── extensions.py         # instância do SQLAlchemy
 │   ├── backup_utils.py       # dispara backup em segundo plano após salvar (todos os tipos)
 │   ├── routes/
-│   │   ├── home.py           # "/" splash de abertura + "/inicio" grade com um botão por tipo de registro
+│   │   ├── home.py           # "/" splash + "/inicio" categoria (Diárias/Semanais/Mensais) + "/diarias", "/semanais", "/mensais"
 │   │   ├── dashboard.py      # painel: decide entre o painel de um tipo específico ou a visão combinada
 │   │   └── backup.py         # endpoint HTTP protegido para disparar backup
 │   ├── tipos/                # um pacote por tipo de registro — ver seção abaixo
-│   │   ├── base.py           # TipoRegistro (dataclass) + registro central
+│   │   ├── base.py           # TipoRegistro (dataclass, com campo categoria) + registro central
 │   │   └── temperatura/      # tipo "Temperatura de Processo"
 │   │       ├── __init__.py    # monta o TipoRegistro e se cadastra
 │   │       ├── models.py       # modelo RegistroTemperatura + regras de negócio
@@ -244,7 +244,8 @@ temperaturas/
 │   │       └── dashboard.py      # painel, API de dados e exportação Excel deste tipo
 │   ├── templates/
 │   │   ├── splash.html        # tela de splash/abertura (autocontida, sem base.html)
-│   │   ├── home.html          # tela inicial (grade de tipos)
+│   │   ├── home_categorias.html  # tela "Categoria de Registro" (Diárias/Semanais/Mensais)
+│   │   ├── home_tipos.html    # grade de tipos de uma categoria (usada por /diarias, /semanais, /mensais)
 │   │   ├── dashboard_combinado.html  # visão combinada (2+ tipos)
 │   │   └── tipos/temperatura/  # templates específicos do tipo
 │   └── static/
@@ -263,11 +264,14 @@ temperaturas/
 
 Cada "planilha" (Temperatura de Processo, e futuras) é um **tipo de
 registro** — um pacote isolado em `app/tipos/<slug>/` com sua própria
-tabela, formulário e painel. A tela inicial (`/inicio`) e o painel
-(`/dashboard`) são genéricos: eles descobrem os tipos disponíveis
-automaticamente a partir de um registro central
-(`app/tipos/base.py`), sem precisar saber de antemão quais tipos
-existem.
+tabela, formulário e painel. As telas de navegação (`/diarias`,
+`/semanais`, `/mensais`) e o painel (`/dashboard`) são genéricos: eles
+descobrem os tipos disponíveis automaticamente a partir de um
+registro central (`app/tipos/base.py`), sem precisar saber de
+antemão quais tipos existem. Cada tipo também declara sua
+**categoria** — `"diaria"` (padrão), `"semanal"` ou `"mensal"` — que
+decide em qual das três telas ele aparece; ver "Navegação por
+categoria" logo abaixo.
 
 ### Como adicionar um novo tipo de registro
 
@@ -297,6 +301,10 @@ Usando `app/tipos/temperatura/` como referência, para um novo tipo
    - `__init__.py` — monta um `TipoRegistro` (slug, nome de exibição,
      ícone/emoji, nome da tabela SQL, colunas para o backup CSV, e as
      3 funções acima) e chama `registrar_tipo(TIPO, formulario_bp, dashboard_bp)`.
+     Passe também `categoria="semanal"` ou `categoria="mensal"` se o
+     novo tipo não for diário (o padrão é `"diaria"`, usado pelos 9
+     tipos de hoje) — é só isso que decide se ele aparece em
+     `/diarias`, `/semanais` ou `/mensais`.
 
 2. **Registre o pacote**: adicione `from app.tipos import <slug>` no
    final de `app/tipos/__init__.py`.
@@ -306,13 +314,31 @@ Usando `app/tipos/temperatura/` como referência, para um novo tipo
    como ponto de partida). Estáticos específicos (JS/CSS) vão em
    `app/static/tipos/<slug>/`.
 
-4. Pronto — a tela inicial, o `/dashboard` combinado e a exportação
-   combinada (`/exportar?tipo=todos`) passam a incluir o novo tipo
+4. Pronto — a tela da categoria correspondente (`/diarias`,
+   `/semanais` ou `/mensais`, conforme o `categoria` escolhido), o
+   `/dashboard` combinado e a exportação combinada
+   (`/exportar?tipo=todos`) passam a incluir o novo tipo
    automaticamente, e o backup (local + S3) passa a cobrir a nova
    tabela sozinho (via `colunas_backup`/`tabela` do `TipoRegistro`).
 
 Nada no `RegistroTemperatura` original muda ao adicionar um novo
 tipo — cada tipo é isolado no seu próprio pacote/tabela.
+
+### Navegação por categoria (Diárias / Semanais / Mensais)
+
+A navegação tem uma camada a mais antes da grade de tipos: depois da
+splash, `/inicio` mostra três botões — Diárias, Semanais e Mensais —
+e cada um leva pra grade de tipos daquela frequência (`/diarias`,
+`/semanais`, `/mensais`, todas renderizadas pelo mesmo template
+`home_tipos.html`, filtrando `TIPOS_REGISTRO` pelo campo `categoria`
+de cada um via `tipos_por_categoria()`). Hoje só existem tipos
+diários, então `/semanais` e `/mensais` mostram uma mensagem de
+"nenhum registro cadastrado ainda" — a estrutura já está pronta, e um
+tipo novo com `categoria="semanal"` ou `"mensal"` passa a aparecer
+sozinho na tela certa, sem precisar tocar em `app/routes/home.py` nem
+nos templates. O painel (`/dashboard`) e a exportação continuam
+ignorando a categoria — sempre mostram/exportam todos os tipos juntos,
+independente de frequência.
 
 ### Alterando os campos de um tipo que já está em produção
 
@@ -353,9 +379,10 @@ python wsgi.py
 ```
 
 Acesse `http://localhost:5000` (splash de abertura, redireciona
-sozinha em alguns segundos para `/inicio` — a tela de escolha do
-tipo de registro) e `http://localhost:5000/dashboard` (painel). O banco
-`instance/temperaturas.db` é criado automaticamente no primeiro acesso.
+sozinha em alguns segundos para `/inicio` — a tela de escolha da
+categoria: Diárias/Semanais/Mensais) e `http://localhost:5000/dashboard`
+(painel). O banco `instance/temperaturas.db` é criado automaticamente
+no primeiro acesso.
 
 ## Fuso horário
 
@@ -608,66 +635,79 @@ command `pip install -r requirements.txt` e Start command
    arquivo original nesse ambiente, não dava pra usá-lo direto; troque
    o `<svg>` no template pelo arquivo oficial quando for conveniente,
    se quiser fidelidade exata ao logo real.
-2. **Início** (`/inicio`) — grade de botões grandes, um por tipo de
-   registro cadastrado: hoje "🌡️ Temperatura de Processo", "🧊
+2. **Categoria de Registro** (`/inicio`) — primeira escolha depois da
+   splash: três botões grandes, um por frequência — "📆 Diárias", "🗓️
+   Semanais" e "📅 Mensais". O link "Início" da barra de navegação
+   sempre aponta direto pra cá — a splash só aparece uma vez, ao
+   acessar a URL raiz. Ver `app/routes/home.py` (`index()`) e
+   `app/templates/home_categorias.html`.
+3. **Diárias** (`/diarias`) — grade de botões grandes, um por tipo de
+   registro diário cadastrado: hoje "🌡️ Temperatura de Processo", "🧊
    Temperatura de Setor/Câmara", "💧 PAC 03-A - Água de
    Abastecimento", "🥩 PAC 04-C - Temperatura dos Produtos", "📦
    PAC 04-D - Câmaras de Expedição", "⚖️ PAC 06-D - Monitoramento de
    Peso", "📏 PAC 06-E - Monitoramento de Gramatura", "🧼 PAC 11 -
    Monitoramento dos PSO's" e "🪡 PAC 17 - Integridade de Componentes
-   de Máquinas". Ao clicar, leva ao formulário daquele tipo. O link
-   "Início" da barra de navegação sempre aponta direto pra cá — a
-   splash só aparece uma vez, ao acessar a URL raiz.
-3. **Registro de temperatura** (`/temperatura`) — botões grandes por
+   de Máquinas" — os 9 tipos existentes hoje são todos diários. Ao
+   clicar, leva ao formulário daquele tipo; "← Voltar" retorna pra
+   `/inicio`.
+4. **Semanais** (`/semanais`) e **Mensais** (`/mensais`) — mesma tela
+   de grade, hoje vazia em ambas ("Nenhum registro semanal/mensal
+   cadastrado ainda"): é só a estrutura pronta pra receber os
+   primeiros tipos dessas frequências (ver "Como adicionar um novo
+   tipo de registro" acima — basta `categoria="semanal"` ou
+   `categoria="mensal"` no `TipoRegistro`, sem mexer em rota nem
+   template).
+5. **Registro de temperatura** (`/temperatura`) — botões grandes por
    etapa, campo numérico de temperatura, campo de responsável (com
    sugestões dos últimos nomes digitados) e botão "Salvar" grande.
    Mostra alerta de sucesso ou de "fora do padrão" imediatamente após
    salvar.
-4. **Registro de temperatura de setor/câmara** (`/temperatura_setor`)
+6. **Registro de temperatura de setor/câmara** (`/temperatura_setor`)
    — mesma ideia, mas com um campo de busca no lugar da grade fixa de
    botões (17 setores é demais pra caber sem rolar a tela toda): a
    busca filtra os botões em tempo real por nome, sem diferenciar
    acento. Temperatura aceita negativos.
-5. **Registro de água de abastecimento** (`/agua_abastecimento`) —
+7. **Registro de água de abastecimento** (`/agua_abastecimento`) —
    botões grandes pro ponto de coleta (9 pontos fixos, mesmo padrão de
    etapa/setor), campos numéricos de pH e Cloro. O alerta indica
    especificamente qual dos dois está fora do padrão.
-6. **Registro de temperatura de produto** (`/temp_produto`) — botões
+8. **Registro de temperatura de produto** (`/temp_produto`) — botões
    pra local e categoria, campo de texto pro nome do produto (com
    sugestões dos últimos produtos digitados), temperatura numérica. O
    limite de conformidade depende da categoria escolhida (Corte vs.
    Carne Moída), não é fixo. Sem limite de quantos registros por dia.
-7. **Registro de temperatura de expedição** (`/temp_expedicao`) —
+9. **Registro de temperatura de expedição** (`/temp_expedicao`) —
    botões pra local (4 câmaras/pontos), e o seletor de categoria
    aparece ou some dinamicamente dependendo do local escolhido ("Matéria
    Prima - Quebra de Gelo" não tem categoria). O limite depende da
    combinação local + categoria. Temperatura aceita negativos.
-8. **Registro de monitoramento de peso** (`/peso_produto`) — dados do
-   produto (nome, peso líquido nominal, peso da embalagem,
-   responsável) e, em seguida, uma seção pra ir lançando pesagens
-   individuais uma a uma (campo numérico + botão "+ Adicionar"): cada
-   pesagem entra numa lista visual verde/vermelho conforme atinge ou
-   não o padrão mínimo (peso líquido + embalagem), com um resumo ao
-   vivo (total de pesagens, NCs, % conforme) e opção de remover
-   qualquer pesagem antes de salvar. A seção de pesagens só aparece
-   depois de preencher os dois pesos; o botão "Finalizar registro do
-   produto" só habilita com pelo menos uma pesagem lançada. Um único
-   envio salva o registro do produto e todas as pesagens juntos.
-9. **Registro de monitoramento de gramatura** (`/gramatura`) — mesma
-   ideia e mesma tela do PAC 06-D, adaptada: dados do produto (nome,
-   faixa de gramatura mínima e máxima, operador, responsável) e a
-   mesma seção de pesagens individuais com lista visual
-   verde/vermelho e resumo ao vivo. Aqui não há peso de embalagem — a
-   seção de pesagens libera assim que a faixa (mínima e máxima) é
-   preenchida, e cada pesagem é comparada com ela: qualquer valor
-   fora da faixa é NC.
-10. **Registro de monitoramento dos PSOs** (`/pso`) — checklist com os
+10. **Registro de monitoramento de peso** (`/peso_produto`) — dados do
+    produto (nome, peso líquido nominal, peso da embalagem,
+    responsável) e, em seguida, uma seção pra ir lançando pesagens
+    individuais uma a uma (campo numérico + botão "+ Adicionar"): cada
+    pesagem entra numa lista visual verde/vermelho conforme atinge ou
+    não o padrão mínimo (peso líquido + embalagem), com um resumo ao
+    vivo (total de pesagens, NCs, % conforme) e opção de remover
+    qualquer pesagem antes de salvar. A seção de pesagens só aparece
+    depois de preencher os dois pesos; o botão "Finalizar registro do
+    produto" só habilita com pelo menos uma pesagem lançada. Um único
+    envio salva o registro do produto e todas as pesagens juntos.
+11. **Registro de monitoramento de gramatura** (`/gramatura`) — mesma
+    ideia e mesma tela do PAC 06-D, adaptada: dados do produto (nome,
+    faixa de gramatura mínima e máxima, operador, responsável) e a
+    mesma seção de pesagens individuais com lista visual
+    verde/vermelho e resumo ao vivo. Aqui não há peso de embalagem — a
+    seção de pesagens libera assim que a faixa (mínima e máxima) é
+    preenchida, e cada pesagem é comparada com ela: qualquer valor
+    fora da faixa é NC.
+12. **Registro de monitoramento dos PSOs** (`/pso`) — checklist com os
     7 PSOs fixos, cada um com um par de botões grandes "✅ C" (verde) e
     "⚠️ NC" (vermelho), seguido do campo Responsável (Monitor). O
     navegador exige uma seleção (C ou NC) em cada um dos 7 antes de
     deixar enviar; um único envio salva o status dos 7 PSOs do dia de
     uma vez.
-11. **Registro de integridade de componentes** (`/integridade_componente`)
+13. **Registro de integridade de componentes** (`/integridade_componente`)
     — escolha do equipamento (3 botões, cada um com o nome do
     componente entre parênteses), momento da checagem (a opção
     "Troca de Lâminas" só aparece pra Máquina de Cubos e Iscas),
@@ -675,13 +715,13 @@ command `pip install -r requirements.txt` e Start command
     registrar depois), status C/NC (mesmo par de botões verde/vermelho
     do PAC 11) e responsável. O alerta de NC destaca o risco de
     contaminação física do produto.
-12. **Verificação RT** (`/integridade_componente/verificacao-rt`, com
+14. **Verificação RT** (`/integridade_componente/verificacao-rt`, com
     atalho fixo "⚡ Verificação RT" na barra de navegação — a única
     ação disponível em qualquer tela do sistema) — três botões, um
     por equipamento; tocar em um já salva a data/hora e o
     equipamento, sem formulário. Mostra as verificações já feitas
     hoje logo abaixo, como confirmação visual.
-13. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
+15. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
     direto para o painel daquele tipo; com dois ou mais (como hoje),
     mostra uma visão combinada por padrão (cartões de contagem por tipo
     + tabela unificada), com um seletor para entrar no painel completo
@@ -700,7 +740,7 @@ command `pip install -r requirements.txt` e Start command
     equipamento e uma linha por equipamento no gráfico; a tela de
     Verificação RT não tem painel próprio (é só um log rápido, sem
     conceito de conformidade).
-14. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
+16. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
     colunas do tipo em questão, respeitando os filtros aplicados.
     Linhas fora do padrão vêm destacadas em vermelho na planilha. O
     monitoramento de peso e o de gramatura geram duas abas cada: um

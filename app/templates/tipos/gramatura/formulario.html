@@ -4,7 +4,7 @@
 {% block conteudo %}
 <div class="row justify-content-center">
   <div class="col-12 col-md-8 col-lg-6">
-    <a href="{{ url_for('home.index') }}" class="link-voltar">← Escolher outro tipo de registro</a>
+    <a href="{{ url_for('home.diarias') }}" class="link-voltar">← Escolher outro tipo de registro</a>
     <form method="post" action="{{ url_for('gramatura.registrar') }}" id="formGramatura" autocomplete="off">
 
       <h2 class="titulo-secao">1. Produto</h2>

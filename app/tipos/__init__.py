@@ -4,6 +4,7 @@ from app.tipos.base import (  # noqa: F401
     blueprints_registrados,
     obter_tipo,
     registrar_tipo,
+    tipos_por_categoria,
 )
 
 # Cada tipo de registro se cadastra sozinho ao ser importado aqui

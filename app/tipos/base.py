@@ -12,6 +12,15 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Callable
 
+# Categorias de frequência — usadas pra agrupar os tipos na tela
+# "Categoria de Registro" (Diárias/Semanais/Mensais), o passo entre a
+# splash e a grade de tipos. Hoje todo tipo existente é diário; um
+# tipo semanal/mensal novo só precisa passar categoria="semanal" (ou
+# "mensal") no TipoRegistro do seu __init__.py — nenhuma outra
+# mudança estrutural é necessária, ele aparece sozinho na tela certa
+# (ver app/routes/home.py).
+CATEGORIAS_VALIDAS = ("diaria", "semanal", "mensal")
+
 
 @dataclass
 class TipoRegistro:
@@ -48,6 +57,20 @@ class TipoRegistro:
     workbook (openpyxl) uma aba com os dados deste tipo no período,
     já formatada (cabeçalho, destaque de não conformidade etc.)."""
 
+    categoria: str = "diaria"
+    """Frequência do tipo — "diaria", "semanal" ou "mensal" (ver
+    CATEGORIAS_VALIDAS). Decide em qual das três telas de "Categoria de
+    Registro" o tipo aparece. Todo tipo já existente é diário, por
+    isso o padrão — tipos novos de outra frequência passam
+    categoria="semanal"/"mensal" explicitamente."""
+
+    def __post_init__(self) -> None:
+        if self.categoria not in CATEGORIAS_VALIDAS:
+            raise ValueError(
+                f"categoria inválida para o tipo '{self.slug}': {self.categoria!r} "
+                f"(use uma de {CATEGORIAS_VALIDAS})"
+            )
+
 
 TIPOS_REGISTRO: list[TipoRegistro] = []
 _BLUEPRINTS: list = []
@@ -61,6 +84,13 @@ def registrar_tipo(tipo: TipoRegistro, *blueprints) -> None:
 
 def obter_tipo(slug: str) -> TipoRegistro | None:
     return next((t for t in TIPOS_REGISTRO if t.slug == slug), None)
+
+
+def tipos_por_categoria(categoria: str) -> list[TipoRegistro]:
+    """Tipos registrados de uma frequência ("diaria"/"semanal"/
+    "mensal"), na ordem em que foram importados — usado pela tela de
+    "Categoria de Registro" (app/routes/home.py)."""
+    return [t for t in TIPOS_REGISTRO if t.categoria == categoria]
 
 
 def blueprints_registrados() -> list:
