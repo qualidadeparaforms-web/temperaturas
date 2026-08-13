@@ -314,6 +314,35 @@ Usando `app/tipos/temperatura/` como referência, para um novo tipo
 Nada no `RegistroTemperatura` original muda ao adicionar um novo
 tipo — cada tipo é isolado no seu próprio pacote/tabela.
 
+### Alterando os campos de um tipo que já está em produção
+
+`db.create_all()` só **cria** tabelas que ainda não existem — nunca
+altera uma tabela que já existe. Então, se um tipo que já está no ar
+ganha um campo novo ou renomeado no `models.py` (ex.: o PAC 06-E
+trocou `gramatura_nominal` por `gramatura_minima`/`gramatura_maxima`
+depois do primeiro deploy), o banco em produção fica desatualizado, e
+tudo que toca a coluna nova quebra com `no such column` — inclusive o
+backup automático.
+
+Pra isso não exigir mexer no banco manualmente a cada mudança dessas,
+`_migrar_colunas_faltantes()` (`app/__init__.py`) roda sozinha em
+todo boot, depois de `db.create_all()`, e resolve nos dois sentidos:
+adiciona (via `ALTER TABLE ADD COLUMN`) qualquer coluna que o modelo
+tenha e a tabela real não tenha, e remove (via `ALTER TABLE DROP
+COLUMN`) qualquer coluna "órfã" que a tabela real ainda tenha mas o
+modelo não usa mais — importante porque uma coluna órfã com `NOT
+NULL` bloquearia todo INSERT novo, já que o SQLAlchemy nem menciona
+mais essa coluna. Genérica: não lista tipo por tipo, cobre qualquer
+tabela conhecida pelo SQLAlchemy. Basta dar `git push` — o próximo
+boot se autocorrige.
+
+Como segunda linha de defesa, `_exportar_csv()` (`backup.py`) isola
+cada tipo num `try/except` — mesmo que a auto-migração falhe por
+algum motivo (ex.: SQLite antigo demais sem suporte a `DROP COLUMN`),
+um tipo com problema de esquema não derruba mais o backup inteiro: o
+`.db` binário e os demais tipos continuam sendo gerados e enviados
+normalmente.
+
 ## Rodando localmente
 
 ```bash

@@ -69,6 +69,16 @@ def _exportar_csv(origem: str, destino_dir: str, timestamp: str) -> list:
     """Exporta um CSV por tipo de registro cadastrado (ver app/tipos) —
     hoje só "temperatura", mas cresce sozinho conforme novos tipos
     forem adicionados ao registro (nenhuma mudança necessária aqui).
+
+    Cada tipo é isolado num try/except: se um tipo falhar (ex.:
+    esquema desatualizado numa tabela — o app já se autocorrige no
+    boot, ver _migrar_colunas_faltantes em app/__init__.py, mas essa
+    blindagem aqui é a segunda linha de defesa), os demais tipos e o
+    backup binário do banco inteiro (chamado antes deste, em
+    executar_backup) não são afetados. Antes desta blindagem, uma
+    falha em um único tipo interrompia a função inteira e derrubava o
+    backup do zero — inclusive o upload do .db, que roda depois desta
+    chamada.
     """
     from app.tipos import TIPOS_REGISTRO
 
@@ -76,17 +86,21 @@ def _exportar_csv(origem: str, destino_dir: str, timestamp: str) -> list:
     cur = con.cursor()
     caminhos = []
     for tipo in TIPOS_REGISTRO:
-        # tipo.tabela/colunas_backup vêm do código-fonte (TipoRegistro),
-        # nunca de entrada externa — seguro compor a query assim.
-        colunas = tipo.colunas_backup
-        cur.execute(f"SELECT {', '.join(colunas)} FROM {tipo.tabela} ORDER BY id")
-        linhas = cur.fetchall()
+        try:
+            # tipo.tabela/colunas_backup vêm do código-fonte (TipoRegistro),
+            # nunca de entrada externa — seguro compor a query assim.
+            colunas = tipo.colunas_backup
+            cur.execute(f"SELECT {', '.join(colunas)} FROM {tipo.tabela} ORDER BY id")
+            linhas = cur.fetchall()
 
-        destino = os.path.join(destino_dir, f"temperaturas_{timestamp}_{tipo.slug}.csv")
-        with open(destino, "w", newline="", encoding="utf-8") as arquivo:
-            writer = csv.writer(arquivo)
-            writer.writerow(colunas)
-            writer.writerows(linhas)
+            destino = os.path.join(destino_dir, f"temperaturas_{timestamp}_{tipo.slug}.csv")
+            with open(destino, "w", newline="", encoding="utf-8") as arquivo:
+                writer = csv.writer(arquivo)
+                writer.writerow(colunas)
+                writer.writerows(linhas)
+        except Exception as exc:
+            print(f"Falha ao exportar CSV do tipo '{tipo.slug}': {exc} (outros tipos e o backup binário seguem normalmente)")
+            continue
         caminhos.append(destino)
     con.close()
     return caminhos
