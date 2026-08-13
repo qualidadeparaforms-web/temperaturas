@@ -267,6 +267,18 @@ Acesse `http://localhost:5000` (tela inicial, escolha do tipo de
 registro) e `http://localhost:5000/dashboard` (painel). O banco
 `instance/temperaturas.db` é criado automaticamente no primeiro acesso.
 
+## Fuso horário
+
+Hospedagens como o Render rodam o servidor com o relógio em UTC.
+Para que `data`/`horario` de todo registro (em todos os tipos) e os
+filtros "Hoje"/"Última semana"/"Último mês" do painel reflitam o
+horário de Brasília (não o horário "cru" do servidor), o sistema usa
+`agora_brasilia()` (`app/timezone_utils.py`) — um deslocamento fixo
+de -3h sobre o UTC — em vez de `date.today()`/`datetime.now()`
+diretos. O Brasil não usa mais horário de verão desde 2019, então
+esse deslocamento fixo é seguro e não depende de tabela de fuso
+horário (tzdata) no servidor.
+
 ## Variáveis de ambiente
 
 | Variável | Padrão | Descrição |

@@ -1,9 +1,8 @@
-from datetime import date, datetime
-
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from app.backup_utils import agendar_backup_apos_registro
 from app.extensions import db
+from app.timezone_utils import agora_brasilia
 from app.tipos.temperatura.models import ETAPAS, RegistroTemperatura
 
 # Convenção: o blueprint do formulário de cada tipo tem o mesmo nome
@@ -57,8 +56,8 @@ def registrar():
         return redirect(url_for("temperatura.index"))
 
     registro = RegistroTemperatura(
-        data=date.today(),
-        horario=datetime.now().time().replace(microsecond=0),
+        data=agora_brasilia().date(),
+        horario=agora_brasilia().time().replace(microsecond=0),
         etapa=etapa,
         temperatura=temperatura,
         responsavel=responsavel,

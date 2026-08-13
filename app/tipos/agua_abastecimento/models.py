@@ -1,6 +1,7 @@
-from datetime import date, datetime
+from datetime import datetime
 
 from app.extensions import db
+from app.timezone_utils import agora_brasilia
 
 # Faixas de conformidade — fixas no código.
 PH_MIN = 6.0
@@ -28,9 +29,9 @@ class RegistroAguaAbastecimento(db.Model):
     __tablename__ = "registros_agua_abastecimento"
 
     id = db.Column(db.Integer, primary_key=True)
-    data = db.Column(db.Date, nullable=False, default=date.today)
+    data = db.Column(db.Date, nullable=False, default=lambda: agora_brasilia().date())
     horario = db.Column(
-        db.Time, nullable=False, default=lambda: datetime.now().time().replace(microsecond=0)
+        db.Time, nullable=False, default=lambda: agora_brasilia().time().replace(microsecond=0)
     )
     ponto = db.Column(db.String(120), nullable=False)
     ph = db.Column(db.Float, nullable=False)

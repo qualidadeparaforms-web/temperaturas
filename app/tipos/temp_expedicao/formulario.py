@@ -1,9 +1,8 @@
-from datetime import date, datetime
-
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from app.backup_utils import agendar_backup_apos_registro
 from app.extensions import db
+from app.timezone_utils import agora_brasilia
 from app.tipos.temp_expedicao.models import (
     CATEGORIAS,
     LOCAIS,
@@ -72,8 +71,8 @@ def registrar():
         return redirect(url_for("temp_expedicao.index"))
 
     registro = RegistroTempExpedicao(
-        data=date.today(),
-        horario=datetime.now().time().replace(microsecond=0),
+        data=agora_brasilia().date(),
+        horario=agora_brasilia().time().replace(microsecond=0),
         local=local,
         categoria=categoria,
         temperatura=temperatura,

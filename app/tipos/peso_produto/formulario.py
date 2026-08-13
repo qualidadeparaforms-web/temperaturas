@@ -1,10 +1,10 @@
 import json
-from datetime import date, datetime
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from app.backup_utils import agendar_backup_apos_registro
 from app.extensions import db
+from app.timezone_utils import agora_brasilia
 from app.tipos.peso_produto.models import PesagemIndividual, RegistroPesoProduto
 
 formulario_bp = Blueprint("peso_produto", __name__, url_prefix="/peso_produto")
@@ -98,8 +98,8 @@ def registrar():
         return redirect(url_for("peso_produto.index"))
 
     registro = RegistroPesoProduto(
-        data=date.today(),
-        horario=datetime.now().time().replace(microsecond=0),
+        data=agora_brasilia().date(),
+        horario=agora_brasilia().time().replace(microsecond=0),
         produto=produto,
         peso_liquido_nominal=peso_liquido_nominal,
         peso_embalagem=peso_embalagem,

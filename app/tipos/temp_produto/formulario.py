@@ -1,9 +1,8 @@
-from datetime import date, datetime
-
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from app.backup_utils import agendar_backup_apos_registro
 from app.extensions import db
+from app.timezone_utils import agora_brasilia
 from app.tipos.temp_produto.models import CATEGORIAS, LOCAIS, RegistroTempProduto
 
 formulario_bp = Blueprint("temp_produto", __name__, url_prefix="/temp_produto")
@@ -73,8 +72,8 @@ def registrar():
         return redirect(url_for("temp_produto.index"))
 
     registro = RegistroTempProduto(
-        data=date.today(),
-        horario=datetime.now().time().replace(microsecond=0),
+        data=agora_brasilia().date(),
+        horario=agora_brasilia().time().replace(microsecond=0),
         local=local,
         categoria=categoria,
         produto=produto,

@@ -1,6 +1,7 @@
-from datetime import date, datetime
+from datetime import datetime
 
 from app.extensions import db
+from app.timezone_utils import agora_brasilia
 
 # Setores/câmaras monitorados e seus limites máximos de temperatura
 # (°C) — fixos no código, não editáveis pelo usuário na tela. A ordem
@@ -41,9 +42,9 @@ class RegistroTemperaturaSetor(db.Model):
     __tablename__ = "registros_temperatura_setor"
 
     id = db.Column(db.Integer, primary_key=True)
-    data = db.Column(db.Date, nullable=False, default=date.today)
+    data = db.Column(db.Date, nullable=False, default=lambda: agora_brasilia().date())
     horario = db.Column(
-        db.Time, nullable=False, default=lambda: datetime.now().time().replace(microsecond=0)
+        db.Time, nullable=False, default=lambda: agora_brasilia().time().replace(microsecond=0)
     )
     setor = db.Column(db.String(60), nullable=False, index=True)
     temperatura = db.Column(db.Float, nullable=False)

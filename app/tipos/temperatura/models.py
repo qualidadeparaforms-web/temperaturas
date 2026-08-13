@@ -1,6 +1,7 @@
-from datetime import date, datetime
+from datetime import datetime
 
 from app.extensions import db
+from app.timezone_utils import agora_brasilia
 
 # Etapas do processo, na ordem em que devem aparecer na tela de registro.
 ETAPAS = ["Aparas", "Bifes", "Moídas", "Temperados", "Embalagem", "Selagem"]
@@ -26,9 +27,9 @@ class RegistroTemperatura(db.Model):
     __tablename__ = "registros_temperatura"
 
     id = db.Column(db.Integer, primary_key=True)
-    data = db.Column(db.Date, nullable=False, default=date.today)
+    data = db.Column(db.Date, nullable=False, default=lambda: agora_brasilia().date())
     horario = db.Column(
-        db.Time, nullable=False, default=lambda: datetime.now().time().replace(microsecond=0)
+        db.Time, nullable=False, default=lambda: agora_brasilia().time().replace(microsecond=0)
     )
     etapa = db.Column(db.String(20), nullable=False, index=True)
     temperatura = db.Column(db.Float, nullable=False)

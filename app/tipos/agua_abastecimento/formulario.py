@@ -1,9 +1,8 @@
-from datetime import date, datetime
-
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from app.backup_utils import agendar_backup_apos_registro
 from app.extensions import db
+from app.timezone_utils import agora_brasilia
 from app.tipos.agua_abastecimento.models import PONTOS, RegistroAguaAbastecimento
 
 formulario_bp = Blueprint("agua_abastecimento", __name__, url_prefix="/agua_abastecimento")
@@ -65,8 +64,8 @@ def registrar():
         return redirect(url_for("agua_abastecimento.index"))
 
     registro = RegistroAguaAbastecimento(
-        data=date.today(),
-        horario=datetime.now().time().replace(microsecond=0),
+        data=agora_brasilia().date(),
+        horario=agora_brasilia().time().replace(microsecond=0),
         ponto=ponto,
         ph=ph,
         cloro=cloro,

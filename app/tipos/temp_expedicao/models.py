@@ -1,6 +1,7 @@
-from datetime import date, datetime
+from datetime import datetime
 
 from app.extensions import db
+from app.timezone_utils import agora_brasilia
 
 # Locais monitorados — lista fixa.
 LOCAIS = [
@@ -47,9 +48,9 @@ class RegistroTempExpedicao(db.Model):
     __tablename__ = "registros_temp_expedicao"
 
     id = db.Column(db.Integer, primary_key=True)
-    data = db.Column(db.Date, nullable=False, default=date.today)
+    data = db.Column(db.Date, nullable=False, default=lambda: agora_brasilia().date())
     horario = db.Column(
-        db.Time, nullable=False, default=lambda: datetime.now().time().replace(microsecond=0)
+        db.Time, nullable=False, default=lambda: agora_brasilia().time().replace(microsecond=0)
     )
     local = db.Column(db.String(60), nullable=False)
     # Nulo para o único local sem esse conceito (Matéria Prima).

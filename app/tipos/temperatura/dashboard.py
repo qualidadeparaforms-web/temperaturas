@@ -5,6 +5,7 @@ from flask import Blueprint, jsonify, render_template, request, send_file
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 
+from app.timezone_utils import agora_brasilia
 from app.tipos.temperatura.models import ETAPAS, RegistroTemperatura
 
 # Convenção: o blueprint de dashboard de cada tipo se chama
@@ -23,7 +24,7 @@ COR_FONTE_FORA_PADRAO = "C00000"
 
 def periodo_para_datas(periodo: str, data_inicio: str | None = None, data_fim: str | None = None):
     """Converte o filtro de período em um intervalo (inicio, fim), inclusive."""
-    hoje = date.today()
+    hoje = agora_brasilia().date()
 
     if periodo == "dia":
         return hoje, hoje

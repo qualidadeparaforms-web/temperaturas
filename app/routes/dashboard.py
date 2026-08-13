@@ -1,16 +1,17 @@
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from io import BytesIO
 
 from flask import Blueprint, redirect, render_template, request, send_file, url_for
 from openpyxl import Workbook
 
+from app.timezone_utils import agora_brasilia
 from app.tipos import TIPOS_REGISTRO, obter_tipo
 
 dashboard_bp = Blueprint("dashboard", __name__)
 
 
 def _periodo_para_datas(periodo, data_inicio=None, data_fim=None):
-    hoje = date.today()
+    hoje = agora_brasilia().date()
     if periodo == "dia":
         return hoje, hoje
     if periodo == "semana":

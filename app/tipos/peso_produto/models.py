@@ -1,6 +1,7 @@
-from datetime import date, datetime
+from datetime import datetime
 
 from app.extensions import db
+from app.timezone_utils import agora_brasilia
 
 
 class RegistroPesoProduto(db.Model):
@@ -10,9 +11,9 @@ class RegistroPesoProduto(db.Model):
     __tablename__ = "registros_peso_produto"
 
     id = db.Column(db.Integer, primary_key=True)
-    data = db.Column(db.Date, nullable=False, default=date.today)
+    data = db.Column(db.Date, nullable=False, default=lambda: agora_brasilia().date())
     horario = db.Column(
-        db.Time, nullable=False, default=lambda: datetime.now().time().replace(microsecond=0)
+        db.Time, nullable=False, default=lambda: agora_brasilia().time().replace(microsecond=0)
     )
     produto = db.Column(db.String(80), nullable=False)
     peso_liquido_nominal = db.Column(db.Float, nullable=False)
