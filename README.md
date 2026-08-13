@@ -518,18 +518,35 @@ vez (não dá pra escolher só alguns).
 2. Acesse `https://SEU-APP.onrender.com/admin/resetar?token=SEU_TOKEN`
    (troque pela URL do seu serviço e pelo valor que você definiu em
    `RESET_TOKEN`).
-3. A tela mostra quantos registros existem hoje, tabela por tabela.
-   Digite **APAGAR TUDO** no campo de confirmação pra habilitar o
+3. A tela mostra quantos registros existem hoje, com o nome de cada
+   módulo (ex.: "PAC 11 - Monitoramento dos PSO's") e o nome técnico
+   da tabela logo abaixo. Quer conferir os dados antes de decidir?
+   Tem um link "Baixe uma prévia em JSON agora, sem apagar nada" —
+   baixa um arquivo com tudo que existe hoje, sem mexer em nada.
+4. Digite **APAGAR TUDO** no campo de confirmação pra habilitar o
    botão vermelho, e clique nele.
-4. Pronto — todas as tabelas voltam a ficar vazias, e (se
-   `BACKUP_S3_BUCKET` estiver configurado) um backup é disparado na
-   hora automaticamente.
+5. Antes de apagar de verdade, o sistema salva sozinho um backup
+   completo em JSON de tudo que existia (localmente e no S3/B2, se
+   configurado) — a tela de sucesso mostra o nome do arquivo e um
+   link **"📥 Baixar esse backup agora (JSON)"**, com a contagem de
+   quantos registros foram apagados, módulo por módulo.
+6. Pronto — todas as tabelas voltam a ficar vazias, e (se
+   `BACKUP_S3_BUCKET` estiver configurado) um backup "normal" também é
+   disparado na hora, automaticamente.
 
-O backup logo depois do reset é importante, não só decorativo: sem
-ele, o **último** backup salvo no S3/B2 continuaria com os dados
-antigos, e a próxima vez que o Render "acordasse" do plano Free
-(disco apagado) restauraria justamente o que você acabou de apagar.
-Com o backup atualizado na hora, o estado "vazio" já fica salvo.
+O backup logo depois do reset (o "normal", não o JSON pré-reset) é
+importante, não só decorativo: sem ele, o **último** backup salvo no
+S3/B2 continuaria com os dados antigos, e a próxima vez que o Render
+"acordasse" do plano Free (disco apagado) restauraria justamente o
+que você acabou de apagar. Com o backup atualizado na hora, o estado
+"vazio" já fica salvo.
+
+O backup em JSON pré-reset fica salvo com um nome fixo
+(`pre_reset_<data>_<hora>.json`, fora do padrão usado pelos backups
+de rotina) — não é apagado pela limpeza automática de backups
+antigos, então continua disponível pra consulta bem depois do reset,
+tanto localmente (`/admin/resetar/backup/<nome_do_arquivo>?token=...`)
+quanto no S3/B2 (se configurado).
 
 Depois de usar, não precisa remover `RESET_TOKEN` — a tela continua
 protegida pelo token, então só quem souber a senha consegue acessá-la

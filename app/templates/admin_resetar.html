@@ -9,11 +9,21 @@
       os tipos, de forma permanente. Não tem como desfazer.
     </div>
 
+    <div class="alert alert-warning alerta-grande">
+      💾 Antes de apagar, um backup completo em JSON dos dados atuais é
+      salvo automaticamente (e enviado pro S3/B2, se configurado) — o
+      link pra baixar aparece na tela seguinte. Quer conferir os dados
+      antes mesmo de decidir? <a href="{{ url_for('admin.resetar_preview_json', token=token) }}">Baixe uma prévia em JSON agora, sem apagar nada</a>.
+    </div>
+
     <h2 class="titulo-secao">Registros que serão apagados</h2>
     <ul class="list-unstyled mb-4">
       {% for tabela, contagem in contagens.items() %}
-      <li class="item-pso mb-2 d-flex justify-content-between">
-        <span>{{ tabela }}</span>
+      <li class="item-pso mb-2 d-flex justify-content-between align-items-center">
+        <span>
+          {{ nomes_amigaveis.get(tabela, tabela) }}
+          <span class="text-muted small d-block">{{ tabela }}</span>
+        </span>
         <strong>{{ contagem if contagem is not none else "?" }}</strong>
       </li>
       {% endfor %}

@@ -9,16 +9,39 @@
       pronto pra começar a anotar de verdade.
     </div>
 
+    <div class="alert alert-warning alerta-grande">
+      💾 Backup dos dados de antes do reset salvo
+      {% if backup_json_enviado_s3 %}(local e no S3/B2){% else %}localmente{% endif %}
+      como <code>{{ nome_arquivo_backup }}</code>.
+      <a href="{{ url_for('admin.baixar_backup_pre_reset', nome_arquivo=nome_arquivo_backup, token=token) }}" class="d-block mt-2">
+        📥 Baixar esse backup agora (JSON)
+      </a>
+    </div>
+
     {% if backup_ok %}
     <p class="text-muted">
-      Backup atualizado com sucesso — o estado "vazio" já está salvo, então os
-      dados antigos não correm o risco de voltar sozinhos.
+      Backup "normal" pós-reset também atualizado com sucesso — o estado
+      "vazio" já está salvo, então os dados antigos não correm o risco de
+      voltar sozinhos.
     </p>
     {% elif backup_mensagem %}
     <div class="alert alert-warning alerta-grande">
       ⚠️ {{ backup_mensagem }}
     </div>
     {% endif %}
+
+    <h2 class="titulo-secao">Registros apagados por módulo</h2>
+    <ul class="list-unstyled mb-4">
+      {% for tabela, contagem in contagens_antes.items() %}
+      <li class="item-pso mb-2 d-flex justify-content-between align-items-center">
+        <span>
+          {{ nomes_amigaveis.get(tabela, tabela) }}
+          <span class="text-muted small d-block">{{ tabela }}</span>
+        </span>
+        <strong>{{ contagem if contagem is not none else "?" }}</strong>
+      </li>
+      {% endfor %}
+    </ul>
 
     <a href="{{ url_for('home.index') }}" class="btn btn-salvar w-100 mt-3">Ir para o início</a>
   </div>
