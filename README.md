@@ -187,6 +187,42 @@ mesmo responsável (o "Monitor" do dia).
   `horario` — só `data` (é um checklist diário, não uma medição
   pontual ao longo do dia).
 
+## Regras de negócio — PAC 17 - Monitoramento de Integridade de Componentes de Máquinas
+
+Unifica 3 planilhas antigas (PAC 17-A, 17-C e 17-G) que avaliam o
+mesmo risco — agulhas/lâminas quebradas ou com partes faltantes,
+risco de contaminação física do produto — em 3 equipamentos
+diferentes. Um registro é uma checagem (equipamento + momento),
+avaliada só como C (conforme) ou NC (não conforme), como no PAC 11.
+
+- Os 3 equipamentos, seus componentes e momentos de checagem são
+  fixos em `EQUIPAMENTOS_INFO` (`app/tipos/integridade_componente/models.py`):
+
+  | Equipamento | Componente | Momentos |
+  |---|---|---|
+  | Agulhas Tenderizadora | Agulhas | Início, Final |
+  | Máquina de Cubos e Iscas | Lâminas de Corte | Início, Troca de Lâminas, Final |
+  | Agulhas Injetora | Agulhas | Início, Final |
+
+  "Troca de Lâminas" só existe pra Máquina de Cubos e Iscas — a tela
+  de registro esconde essa opção de momento dinamicamente quando
+  outro equipamento é escolhido (e o backend rejeita a combinação
+  inválida, por segurança).
+- Diferente de todos os outros tipos, o `horario` **não** é
+  preenchido automaticamente — o usuário digita, porque a checagem
+  pode ser registrada depois de ter acontecido (ex.: anotada em
+  papel e digitada mais tarde). Só a `data` é automática.
+- **Verificação RT**: uma segunda tabela independente
+  (`verificacoes_rt`), sem relação com os registros de integridade e
+  sem conceito de conformidade — só guarda equipamento + data/hora
+  automática. Existe uma tela dedicada e rápida
+  (`/integridade_componente/verificacao-rt`, com um atalho fixo "⚡
+  Verificação RT" na barra de navegação, visível em qualquer tela do
+  sistema) onde um toque no botão do equipamento já salva, sem
+  formulário. Serve pra conferências extras do RT ao longo do dia,
+  à parte do checklist formal de integridade.
+- Modelo de dados e regras em `app/tipos/integridade_componente/models.py`.
+
 ## Estrutura do projeto
 
 ```
@@ -484,9 +520,9 @@ command `pip install -r requirements.txt` e Start command
    Temperatura de Setor/Câmara", "💧 PAC 03-A - Água de
    Abastecimento", "🥩 PAC 04-C - Temperatura dos Produtos", "📦
    PAC 04-D - Câmaras de Expedição", "⚖️ PAC 06-D - Monitoramento de
-   Peso", "📏 PAC 06-E - Monitoramento de Gramatura" e "🧼 PAC 11 -
-   Monitoramento dos PSO's". Ao clicar, leva ao formulário daquele
-   tipo.
+   Peso", "📏 PAC 06-E - Monitoramento de Gramatura", "🧼 PAC 11 -
+   Monitoramento dos PSO's" e "🪡 PAC 17 - Integridade de Componentes
+   de Máquinas". Ao clicar, leva ao formulário daquele tipo.
 2. **Registro de temperatura** (`/temperatura`) — botões grandes por
    etapa, campo numérico de temperatura, campo de responsável (com
    sugestões dos últimos nomes digitados) e botão "Salvar" grande.
@@ -536,7 +572,21 @@ command `pip install -r requirements.txt` e Start command
    navegador exige uma seleção (C ou NC) em cada um dos 7 antes de
    deixar enviar; um único envio salva o status dos 7 PSOs do dia de
    uma vez.
-10. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
+10. **Registro de integridade de componentes** (`/integridade_componente`)
+    — escolha do equipamento (3 botões, cada um com o nome do
+    componente entre parênteses), momento da checagem (a opção
+    "Troca de Lâminas" só aparece pra Máquina de Cubos e Iscas),
+    horário digitado manualmente (não é preenchido sozinho — dá pra
+    registrar depois), status C/NC (mesmo par de botões verde/vermelho
+    do PAC 11) e responsável. O alerta de NC destaca o risco de
+    contaminação física do produto.
+11. **Verificação RT** (`/integridade_componente/verificacao-rt`, com
+    atalho fixo "⚡ Verificação RT" na barra de navegação — a única
+    ação disponível em qualquer tela do sistema) — três botões, um
+    por equipamento; tocar em um já salva a data/hora e o
+    equipamento, sem formulário. Mostra as verificações já feitas
+    hoje logo abaixo, como confirmação visual.
+12. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
     direto para o painel daquele tipo; com dois ou mais (como hoje),
     mostra uma visão combinada por padrão (cartões de contagem por tipo
     + tabela unificada), com um seletor para entrar no painel completo
@@ -550,8 +600,12 @@ command `pip install -r requirements.txt` e Start command
     mostrando o total de NCs daquela avaliação. No painel do PAC 11,
     cada PSO é uma linha no gráfico, com um filtro adicional pra
     isolar o histórico de um PSO específico e identificar se algum é
-    recorrente em NC — como não há horário, o eixo X é só por dia.
-11. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
+    recorrente em NC — como não há horário, o eixo X é só por dia. O
+    painel do PAC 17 segue o mesmo formato, com um filtro por
+    equipamento e uma linha por equipamento no gráfico; a tela de
+    Verificação RT não tem painel próprio (é só um log rápido, sem
+    conceito de conformidade).
+13. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
     colunas do tipo em questão, respeitando os filtros aplicados.
     Linhas fora do padrão vêm destacadas em vermelho na planilha. O
     monitoramento de peso e o de gramatura geram duas abas cada: um
@@ -561,9 +615,12 @@ command `pip install -r requirements.txt` e Start command
     matriz original: PSOs nas linhas (sempre os 7), um dia do período
     por coluna, C/NC em cada célula (NC destacado em vermelho) — esse
     formato ignora o filtro de PSO do painel de propósito, pra sempre
-    mostrar o checklist completo. Na visão combinada, "Exportar tudo"
-    gera um único arquivo com uma aba por tipo
-    (`/exportar?tipo=todos`, duas abas para cada um desses dois
+    mostrar o checklist completo. O PAC 17 também gera duas abas:
+    "Integridade Componentes" (os registros C/NC) e "Verificações RT"
+    (o histórico de conferências rápidas, sempre com todos os
+    equipamentos, ignorando o filtro do painel). Na visão combinada,
+    "Exportar tudo" gera um único arquivo com uma aba por tipo
+    (`/exportar?tipo=todos`, duas abas para cada um desses três
     tipos).
 
 ## Paleta de cores
@@ -574,4 +631,4 @@ command `pip install -r requirements.txt` e Start command
 | Azul | `#2E75B6` | Botões de etapa, destaques primários |
 | Amarelo | `#FFF2CC` | Fundo de avisos |
 | Vermelho | `#C00000` | Destaque de registros fora do padrão |
-| Verde | `#2E7D32` | Botão "C" (conforme) do checklist de PSOs (PAC 11) |
+| Verde | `#2E7D32` | Botão "C" (conforme) do checklist de PSOs (PAC 11) e da checagem de integridade (PAC 17) |

@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block titulo %}Registrar Integridade de Componentes{% endblock %}
+
+{% block conteudo %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <a href="{{ url_for('home.index') }}" class="link-voltar">← Escolher outro tipo de registro</a>
+    <form method="post" action="{{ url_for('integridade_componente.registrar') }}" id="formIntegridade" autocomplete="off">
+
+      <h2 class="titulo-secao">1. Equipamento</h2>
+      <div class="mb-4">
+        {% for equip in equipamentos %}
+        <div class="mb-2">
+          <input
+            type="radio"
+            class="btn-check"
+            name="equipamento"
+            id="equip_{{ loop.index0 }}"
+            value="{{ equip }}"
+            data-tem-troca-laminas="{{ 'true' if 'Troca de Lâminas' in equipamentos_info[equip].momentos else 'false' }}"
+            required>
+          <label class="btn-etapa w-100" for="equip_{{ loop.index0 }}">
+            {{ equip }} <span class="text-muted small">({{ equipamentos_info[equip].componente }})</span>
+          </label>
+        </div>
+        {% endfor %}
+      </div>
+
+      <h2 class="titulo-secao">2. Momento da checagem</h2>
+      <div class="row row-cols-3 g-2 mb-4">
+        <div class="col">
+          <input type="radio" class="btn-check" name="momento" id="momento_inicio" value="Início" required>
+          <label class="btn-etapa w-100" for="momento_inicio">Início</label>
+        </div>
+        <div class="col d-none" id="itemMomentoTroca">
+          <input type="radio" class="btn-check" name="momento" id="momento_troca" value="Troca de Lâminas">
+          <label class="btn-etapa w-100" for="momento_troca">Troca de Lâminas</label>
+        </div>
+        <div class="col">
+          <input type="radio" class="btn-check" name="momento" id="momento_final" value="Final" required>
+          <label class="btn-etapa w-100" for="momento_final">Final</label>
+        </div>
+      </div>
+      <p class="text-muted small" id="avisoEquipamento">Selecione o equipamento acima para liberar os momentos de checagem.</p>
+
+      <h2 class="titulo-secao">3. Horário da checagem</h2>
+      <div class="mb-4">
+        <input
+          type="time"
+          name="horario"
+          id="campoHorario"
+          class="form-control form-control-lg text-center"
+          required>
+        <div class="form-text">Pode ser um horário anterior — registre quando conferir a planilha em papel.</div>
+      </div>
+
+      <h2 class="titulo-secao">4. Status</h2>
+      <div class="row g-2 mb-4">
+        <div class="col-6">
+          <input type="radio" class="btn-check" name="status" id="status_c" value="C" required>
+          <label class="btn-status btn-status-c w-100" for="status_c">✅ C</label>
+        </div>
+        <div class="col-6">
+          <input type="radio" class="btn-check" name="status" id="status_nc" value="NC" required>
+          <label class="btn-status btn-status-nc w-100" for="status_nc">⚠️ NC</label>
+        </div>
+      </div>
+
+      <h2 class="titulo-secao">5. Responsável (Monitor)</h2>
+      <div class="mb-4">
+        <input
+          type="text"
+          name="responsavel"
+          id="campoResponsavel"
+          class="form-control form-control-lg"
+          placeholder="Nome de quem está registrando"
+          list="listaResponsaveisIntegridade"
+          required>
+        <datalist id="listaResponsaveisIntegridade">
+          {% for nome in responsaveis %}
+          <option value="{{ nome }}">
+          {% endfor %}
+        </datalist>
+      </div>
+
+      <button type="submit" class="btn btn-salvar w-100">💾 SALVAR</button>
+    </form>
+
+    <a href="{{ url_for('integridade_componente.verificacao_rt') }}" class="link-voltar d-block text-center mt-3">
+      ⚡ Ir para Verificação RT (registro rápido)
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+  (function () {
+    const campo = document.getElementById("campoResponsavel");
+    const salvo = localStorage.getItem("ultimoResponsavelIntegridade");
+    if (salvo) {
+      campo.value = salvo;
+    }
+    document.getElementById("formIntegridade").addEventListener("submit", function () {
+      localStorage.setItem("ultimoResponsavelIntegridade", campo.value);
+    });
+  })();
+
+  // "Troca de Lâminas" só existe pra Máquina de Cubos e Iscas — some
+  // esse botão de momento (e limpa a seleção, se estava marcado)
+  // quando o equipamento escolhido não o usa. Mesmo padrão de
+  // temp_expedicao pra campo condicional.
+  (function () {
+    const radiosEquip = document.querySelectorAll('input[name="equipamento"]');
+    const itemTroca = document.getElementById("itemMomentoTroca");
+    const radioTroca = document.getElementById("momento_troca");
+    const avisoEquipamento = document.getElementById("avisoEquipamento");
+
+    function atualizarMomentos() {
+      const selecionado = document.querySelector('input[name="equipamento"]:checked');
+      avisoEquipamento.classList.toggle("d-none", !!selecionado);
+      const temTroca = selecionado ? selecionado.dataset.temTrocaLaminas === "true" : false;
+      itemTroca.classList.toggle("d-none", !temTroca);
+      if (!temTroca && radioTroca.checked) {
+        radioTroca.checked = false;
+      }
+    }
+
+    radiosEquip.forEach(function (r) {
+      r.addEventListener("change", atualizarMomentos);
+    });
+    atualizarMomentos();
+  })();
+</script>
+{% endblock %}

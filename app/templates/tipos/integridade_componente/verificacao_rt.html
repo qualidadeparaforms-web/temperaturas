@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block titulo %}Verificação RT{% endblock %}
+
+{% block conteudo %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <a href="{{ url_for('home.index') }}" class="link-voltar">← Voltar ao início</a>
+    <h2 class="titulo-secao">⚡ Verificação RT</h2>
+    <p class="text-muted">
+      Toque no equipamento que você acabou de conferir — grava só a data/hora e o
+      equipamento, sem formulário longo.
+    </p>
+
+    <div class="mb-4">
+      {% for equip in equipamentos %}
+      <form method="post" action="{{ url_for('integridade_componente.registrar_verificacao_rt') }}" class="mb-2">
+        <input type="hidden" name="equipamento" value="{{ equip }}">
+        <button type="submit" class="btn btn-salvar w-100">✅ {{ equip }}</button>
+      </form>
+      {% endfor %}
+    </div>
+
+    {% if verificacoes_hoje %}
+    <h2 class="titulo-secao">Verificações de hoje</h2>
+    <ul class="list-unstyled">
+      {% for v in verificacoes_hoje %}
+      <li class="item-pso mb-2">{{ v.data_hora.strftime("%H:%M") }} — {{ v.equipamento }}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-muted small">Nenhuma verificação registrada hoje ainda.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

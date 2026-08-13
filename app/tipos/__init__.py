@@ -18,3 +18,4 @@ from app.tipos import temp_expedicao  # noqa: E402,F401
 from app.tipos import peso_produto  # noqa: E402,F401
 from app.tipos import gramatura  # noqa: E402,F401
 from app.tipos import pso  # noqa: E402,F401
+from app.tipos import integridade_componente  # noqa: E402,F401

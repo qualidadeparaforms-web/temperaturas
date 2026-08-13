@@ -24,6 +24,14 @@
           <li class="nav-item">
             <a class="nav-link {% if request.endpoint == 'dashboard.dashboard' %}active{% endif %}" href="{{ url_for('dashboard.dashboard') }}">Painel</a>
           </li>
+          {# Atalho fixo pra Verificação RT (PAC 17) — único link de tipo
+             específico na navbar compartilhada, de propósito: é a única
+             ação que precisa estar acessível de qualquer tela (pedido
+             explícito do usuário), diferente do resto do sistema, onde
+             a navbar não conhece tipos individuais. #}
+          <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'integridade_componente.verificacao_rt' %}active{% endif %}" href="{{ url_for('integridade_componente.verificacao_rt') }}">⚡ Verificação RT</a>
+          </li>
         </ul>
       </div>
     </div>
