@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block titulo %}Apagar todos os registros{% endblock %}
+
+{% block conteudo %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <div class="alert alert-danger alerta-grande">
+      ⚠️ Isso vai apagar <strong>{{ total }}</strong> registro(s) de <strong>TODOS</strong>
+      os tipos, de forma permanente. Não tem como desfazer.
+    </div>
+
+    <h2 class="titulo-secao">Registros que serão apagados</h2>
+    <ul class="list-unstyled mb-4">
+      {% for tabela, contagem in contagens.items() %}
+      <li class="item-pso mb-2 d-flex justify-content-between">
+        <span>{{ tabela }}</span>
+        <strong>{{ contagem if contagem is not none else "?" }}</strong>
+      </li>
+      {% endfor %}
+    </ul>
+
+    <h2 class="titulo-secao">Confirmação</h2>
+    <p class="text-muted">
+      Pra confirmar, digite <strong>APAGAR TUDO</strong> no campo abaixo.
+    </p>
+    <form method="post" id="formResetar" autocomplete="off">
+      <input type="hidden" name="token" value="{{ token }}">
+      <input
+        type="text"
+        id="campoConfirmacao"
+        class="form-control form-control-lg mb-3"
+        autocomplete="off"
+        placeholder="Digite APAGAR TUDO">
+      <button
+        type="submit"
+        class="w-100"
+        id="botaoResetar"
+        style="background-color: var(--vermelho); color: #fff; min-height: 70px; font-size: 1.4rem; font-weight: 700; border: none; border-radius: 14px;"
+        disabled>
+        🗑️ Apagar todos os registros
+      </button>
+    </form>
+    <a href="{{ url_for('home.index') }}" class="link-voltar d-block text-center mt-3">← Cancelar e voltar</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+  (function () {
+    const campo = document.getElementById("campoConfirmacao");
+    const botao = document.getElementById("botaoResetar");
+    campo.addEventListener("input", function () {
+      botao.disabled = campo.value.trim().toUpperCase() !== "APAGAR TUDO";
+    });
+  })();
+</script>
+{% endblock %}

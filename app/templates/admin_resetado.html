@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block titulo %}Registros apagados{% endblock %}
+
+{% block conteudo %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <div class="alert alert-success alerta-grande">
+      ✅ Pronto! {{ total_antes }} registro(s) apagado(s). O sistema está limpo,
+      pronto pra começar a anotar de verdade.
+    </div>
+
+    {% if backup_ok %}
+    <p class="text-muted">
+      Backup atualizado com sucesso — o estado "vazio" já está salvo, então os
+      dados antigos não correm o risco de voltar sozinhos.
+    </p>
+    {% elif backup_mensagem %}
+    <div class="alert alert-warning alerta-grande">
+      ⚠️ {{ backup_mensagem }}
+    </div>
+    {% endif %}
+
+    <a href="{{ url_for('home.index') }}" class="btn btn-salvar w-100 mt-3">Ir para o início</a>
+  </div>
+</div>
+{% endblock %}

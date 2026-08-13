@@ -20,6 +20,7 @@ def create_app(config_class: type = Config) -> Flask:
 
     db.init_app(app)
 
+    from app.routes.admin import admin_bp
     from app.routes.backup import backup_bp
     from app.routes.dashboard import dashboard_bp
     from app.routes.home import home_bp
@@ -28,6 +29,7 @@ def create_app(config_class: type = Config) -> Flask:
     app.register_blueprint(home_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(backup_bp)
+    app.register_blueprint(admin_bp)
     for blueprint in blueprints_registrados():
         app.register_blueprint(blueprint)
 

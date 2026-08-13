@@ -349,6 +349,7 @@ horário (tzdata) no servidor.
 | `BACKUP_DIR` | `backups/` | Pasta onde os backups são salvos |
 | `BACKUP_MANTER_ULTIMOS` | `30` | Quantos backups recentes manter |
 | `BACKUP_TOKEN` | (vazio) | Se definido, habilita `POST /backup/executar` |
+| `RESET_TOKEN` | (vazio) | Se definido, habilita a tela `/admin/resetar` (apaga todos os registros — ver seção abaixo) |
 | `BACKUP_S3_BUCKET` | (vazio) | Se definido, faz backup a cada registro salvo para um bucket S3/compatível e restaura automaticamente na inicialização |
 | `BACKUP_S3_ENDPOINT_URL` | (vazio) | Endpoint do serviço S3-compatível (ex.: Cloudflare R2). Não definir para AWS S3 de verdade |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | (vazio) | Credenciais do bucket (S3/R2/compatível) |
@@ -474,6 +475,37 @@ python backup.py
 > Para esta aplicação (SQLite, baixo volume) o padrão de 1 worker do
 > `Procfile` já é o recomendado — evite aumentar `--workers` sem
 > migrar para um banco que suporte mais concorrência.
+
+## Apagar todos os registros (reset)
+
+Útil pra limpar dados de teste antes de começar a usar o sistema de
+verdade — apaga **todos** os registros de **todos** os tipos de uma
+vez (não dá pra escolher só alguns).
+
+1. Defina a variável de ambiente `RESET_TOKEN` (qualquer senha sua,
+   igual você já fez com `BACKUP_TOKEN`) nas configurações do seu
+   serviço (Render → Environment). Sem essa variável, a tela de reset
+   fica desabilitada.
+2. Acesse `https://SEU-APP.onrender.com/admin/resetar?token=SEU_TOKEN`
+   (troque pela URL do seu serviço e pelo valor que você definiu em
+   `RESET_TOKEN`).
+3. A tela mostra quantos registros existem hoje, tabela por tabela.
+   Digite **APAGAR TUDO** no campo de confirmação pra habilitar o
+   botão vermelho, e clique nele.
+4. Pronto — todas as tabelas voltam a ficar vazias, e (se
+   `BACKUP_S3_BUCKET` estiver configurado) um backup é disparado na
+   hora automaticamente.
+
+O backup logo depois do reset é importante, não só decorativo: sem
+ele, o **último** backup salvo no S3/B2 continuaria com os dados
+antigos, e a próxima vez que o Render "acordasse" do plano Free
+(disco apagado) restauraria justamente o que você acabou de apagar.
+Com o backup atualizado na hora, o estado "vazio" já fica salvo.
+
+Depois de usar, não precisa remover `RESET_TOKEN` — a tela continua
+protegida pelo token, então só quem souber a senha consegue acessá-la
+de novo (e você pode trocá-la ou apagá-la quando quiser desabilitar
+de vez).
 
 ## Deploy
 

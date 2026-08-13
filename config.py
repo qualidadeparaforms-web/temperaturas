@@ -32,6 +32,12 @@ class Config:
     # Se não for definido, o endpoint fica desabilitado.
     BACKUP_TOKEN = os.environ.get("BACKUP_TOKEN")
 
+    # Token para proteger a tela de reset (/admin/resetar), que apaga
+    # TODOS os registros de TODOS os tipos — separado do BACKUP_TOKEN
+    # de propósito (vazar um dos dois não dá acesso ao outro). Se não
+    # for definido, a tela fica desabilitada.
+    RESET_TOKEN = os.environ.get("RESET_TOKEN")
+
     # Se "true", a própria aplicação roda o backup periodicamente em
     # segundo plano (sem precisar de um Cron Job separado). Útil em
     # planos sem disco persistente, combinado com BACKUP_S3_BUCKET:
