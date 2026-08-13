@@ -16,9 +16,10 @@ def index():
     Bifes e Cubos.
 
     Igual ao PAC 06-D (peso do produto embalado), mas sem embalagem:
-    aqui compara-se cada pesagem direto com a gramatura nominal, sem
-    margem de tolerância. As pesagens são acumuladas no navegador e só
-    chegam ao servidor num único POST ao finalizar (ver `registrar`).
+    aqui compara-se cada pesagem com uma FAIXA de gramatura
+    (gramatura_minima..gramatura_maxima) — qualquer valor fora da
+    faixa é NC. As pesagens são acumuladas no navegador e só chegam ao
+    servidor num único POST ao finalizar (ver `registrar`).
     """
     responsaveis = [
         r[0]
@@ -59,7 +60,8 @@ def _parse_float(valor_raw: str) -> float:
 @formulario_bp.route("/registrar", methods=["POST"])
 def registrar():
     produto = (request.form.get("produto") or "").strip()
-    gramatura_raw = (request.form.get("gramatura_nominal") or "").strip()
+    gramatura_minima_raw = (request.form.get("gramatura_minima") or "").strip()
+    gramatura_maxima_raw = (request.form.get("gramatura_maxima") or "").strip()
     operador = (request.form.get("operador") or "").strip()
     responsavel = (request.form.get("responsavel") or "").strip()
     pesagens_raw = (request.form.get("pesagens_json") or "").strip()
@@ -68,14 +70,26 @@ def registrar():
     if not produto:
         erros.append("Informe o nome do produto.")
 
-    gramatura_nominal = None
-    if not gramatura_raw:
-        erros.append("Informe a gramatura nominal.")
+    gramatura_minima = None
+    if not gramatura_minima_raw:
+        erros.append("Informe a gramatura mínima.")
     else:
         try:
-            gramatura_nominal = _parse_float(gramatura_raw)
+            gramatura_minima = _parse_float(gramatura_minima_raw)
         except ValueError:
-            erros.append("Gramatura nominal inválida. Use apenas números.")
+            erros.append("Gramatura mínima inválida. Use apenas números.")
+
+    gramatura_maxima = None
+    if not gramatura_maxima_raw:
+        erros.append("Informe a gramatura máxima.")
+    else:
+        try:
+            gramatura_maxima = _parse_float(gramatura_maxima_raw)
+        except ValueError:
+            erros.append("Gramatura máxima inválida. Use apenas números.")
+
+    if gramatura_minima is not None and gramatura_maxima is not None and gramatura_minima >= gramatura_maxima:
+        erros.append("A gramatura mínima deve ser menor que a gramatura máxima.")
 
     if not operador:
         erros.append("Informe o operador.")
@@ -104,7 +118,8 @@ def registrar():
         data=date.today(),
         horario=datetime.now().time().replace(microsecond=0),
         produto=produto,
-        gramatura_nominal=gramatura_nominal,
+        gramatura_minima=gramatura_minima,
+        gramatura_maxima=gramatura_maxima,
         operador=operador,
         responsavel=responsavel,
     )
@@ -116,16 +131,17 @@ def registrar():
 
     agendar_backup_apos_registro()
 
+    faixa = f"{registro.gramatura_minima:g}–{registro.gramatura_maxima:g}"
     if registro.conforme:
         flash(
             f"✅ Registro salvo! {produto}: {registro.total_pesagens} pesagem(ns), "
-            f"todas conformes (gramatura nominal: {registro.gramatura_nominal:g}).",
+            f"todas conformes (faixa: {faixa}).",
             "success",
         )
     else:
         flash(
             f"⚠️ Fora do padrão! {produto}: {registro.total_nc} de {registro.total_pesagens} "
-            f"pesagem(ns) abaixo da gramatura nominal ({registro.gramatura_nominal:g}). "
+            f"pesagem(ns) fora da faixa de gramatura ({faixa}). "
             f"O registro foi salvo mesmo assim.",
             "warning",
         )

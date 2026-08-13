@@ -15,7 +15,8 @@ class RegistroGramatura(db.Model):
         db.Time, nullable=False, default=lambda: datetime.now().time().replace(microsecond=0)
     )
     produto = db.Column(db.String(80), nullable=False)
-    gramatura_nominal = db.Column(db.Float, nullable=False)
+    gramatura_minima = db.Column(db.Float, nullable=False)
+    gramatura_maxima = db.Column(db.Float, nullable=False)
     operador = db.Column(db.String(100), nullable=False)
     responsavel = db.Column(db.String(100), nullable=False)
     criado_em = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
@@ -55,7 +56,8 @@ class RegistroGramatura(db.Model):
             "data_iso": self.data.isoformat(),
             "horario": self.horario.strftime("%H:%M"),
             "produto": self.produto,
-            "gramatura_nominal": self.gramatura_nominal,
+            "gramatura_minima": self.gramatura_minima,
+            "gramatura_maxima": self.gramatura_maxima,
             "operador": self.operador,
             "responsavel": self.responsavel,
             "total_pesagens": self.total_pesagens,
@@ -76,9 +78,10 @@ class PesagemIndividualGramatura(db.Model):
 
     @property
     def conforme(self) -> bool:
-        """NC (não conforme) quando o peso medido é menor que a
-        gramatura nominal do registro — sem margem de tolerância."""
-        return self.peso_medido >= self.registro.gramatura_nominal
+        """NC (não conforme) quando o peso medido cai fora da faixa
+        [gramatura_minima, gramatura_maxima] do registro — qualquer
+        valor abaixo do mínimo ou acima do máximo é NC."""
+        return self.registro.gramatura_minima <= self.peso_medido <= self.registro.gramatura_maxima
 
     def to_dict(self) -> dict:
         return {

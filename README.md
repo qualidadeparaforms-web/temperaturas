@@ -144,17 +144,18 @@ Mesma estrutura relacional do PAC 06-D (um registro de avaliação do
 produto, tabela `registros_gramatura`, com várias pesagens
 individuais associadas, tabela `pesagens_individuais_gramatura`, em
 quantidade variável), mas **sem embalagem**: aqui são pesados
-bifes/cubos soltos, comparados direto com uma gramatura nominal —
-sem margem de tolerância.
+bifes/cubos soltos, comparados direto com uma **faixa de gramatura**
+(mínima e máxima) — sem margem de tolerância além da própria faixa.
 
-- Para cada produto avaliado, informa-se a **gramatura nominal**
-  (peso alvo), além do **operador** (quem produziu) e do
-  **responsável** (quem registrou/aferiu) — dois campos de pessoa
-  distintos, diferente dos demais tipos que só têm responsável.
-- Cada pesagem é **conforme** quando `peso_medido >= gramatura_nominal`
-  (igual à gramatura nominal conta como conforme, sem tolerância
-  abaixo disso). Cada pesagem **não conforme (NC)** é a que ficar
-  abaixo da gramatura nominal.
+- Para cada produto avaliado, informa-se a **gramatura mínima** e a
+  **gramatura máxima** aceitas (ex.: 80 a 100, ou 140 a 160), além do
+  **operador** (quem produziu) e do **responsável** (quem
+  registrou/aferiu) — dois campos de pessoa distintos, diferente dos
+  demais tipos que só têm responsável.
+- Cada pesagem é **conforme** quando
+  `gramatura_minima <= peso_medido <= gramatura_maxima`. Cada pesagem
+  **não conforme (NC)** é qualquer valor fora dessa faixa — tanto
+  abaixo do mínimo quanto acima do máximo.
 - O sistema calcula automaticamente, por registro: total de
   pesagens, total de NCs e percentual de conformidade.
 - Tela de registro e comportamento de acumular pesagens no navegador
@@ -487,11 +488,12 @@ command `pip install -r requirements.txt` e Start command
    envio salva o registro do produto e todas as pesagens juntos.
 8. **Registro de monitoramento de gramatura** (`/gramatura`) — mesma
    ideia e mesma tela do PAC 06-D, adaptada: dados do produto (nome,
-   gramatura nominal, operador, responsável) e a mesma seção de
-   pesagens individuais com lista visual verde/vermelho e resumo ao
-   vivo. Aqui não há peso de embalagem — a seção de pesagens libera
-   assim que a gramatura nominal é preenchida, e cada pesagem é
-   comparada direto com ela, sem margem de tolerância.
+   faixa de gramatura mínima e máxima, operador, responsável) e a
+   mesma seção de pesagens individuais com lista visual
+   verde/vermelho e resumo ao vivo. Aqui não há peso de embalagem — a
+   seção de pesagens libera assim que a faixa (mínima e máxima) é
+   preenchida, e cada pesagem é comparada com ela: qualquer valor
+   fora da faixa é NC.
 9. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
    direto para o painel daquele tipo; com dois ou mais (como hoje),
    mostra uma visão combinada por padrão (cartões de contagem por tipo

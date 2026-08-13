@@ -120,7 +120,8 @@ def adicionar_planilha(wb: Workbook, inicio: date, fim: date, filtros_extra: dic
     colunas_resumo = [
         "Dia",
         "Produto",
-        "Gramatura Nominal",
+        "Gramatura Mínima",
+        "Gramatura Máxima",
         "Operador",
         "Total Pesagens",
         "Total NC",
@@ -134,7 +135,8 @@ def adicionar_planilha(wb: Workbook, inicio: date, fim: date, filtros_extra: dic
             [
                 registro.data.strftime("%d/%m/%Y"),
                 registro.produto,
-                registro.gramatura_nominal,
+                registro.gramatura_minima,
+                registro.gramatura_maxima,
                 registro.operador,
                 registro.total_pesagens,
                 registro.total_nc,
@@ -148,7 +150,7 @@ def adicionar_planilha(wb: Workbook, inicio: date, fim: date, filtros_extra: dic
                 celula.fill = preenchimento_fora_padrao
                 celula.font = fonte_fora_padrao
 
-    for indice, largura in enumerate([12, 24, 18, 20, 14, 10, 24], start=1):
+    for indice, largura in enumerate([12, 24, 16, 16, 20, 14, 10, 24], start=1):
         ws_resumo.column_dimensions[chr(64 + indice)].width = largura
 
     # Aba 2: detalhe de cada pesagem individual.
