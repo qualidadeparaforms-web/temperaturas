@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block titulo %}Registrar Monitoramento da Iluminação{% endblock %}
+
+{% block conteudo %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <a href="{{ url_for('home.mensais') }}" class="link-voltar">← Escolher outro tipo de registro</a>
+    <form method="post" action="{{ url_for('iluminacao.registrar') }}" id="formIluminacao" autocomplete="off">
+
+      <h2 class="titulo-secao">1. Data da checagem</h2>
+      <div class="mb-4">
+        <input
+          type="date"
+          name="data"
+          id="campoData"
+          class="form-control form-control-lg text-center"
+          value="{{ data_hoje }}"
+          required>
+        <div class="form-text">Checagem mensal — pode ser uma data anterior à de hoje.</div>
+      </div>
+
+      <h2 class="titulo-secao">2. Leitura do luxímetro em cada ponto</h2>
+      <p class="text-muted small mb-3">
+        Conforme = lux obtido maior ou igual ao mínimo exigido do ponto. Não precisa medir todos os
+        pontos nesta checagem — só os preenchidos são salvos.
+      </p>
+
+      {% for setor, local, lux_necessario in pontos %}
+      {% if loop.changed(setor) %}
+      <h3 class="subtitulo-grupo">{{ setor }}</h3>
+      {% endif %}
+      <div class="item-pso mb-3">
+        <div class="item-pso-nome">{{ local }} <span class="text-muted small">(mínimo: {{ lux_necessario }} lux)</span></div>
+        <div class="row g-2 align-items-center">
+          <div class="col-7">
+            <input
+              type="number" step="1" min="0" inputmode="decimal"
+              name="lux_obtido_{{ loop.index0 }}"
+              id="lux_obtido_{{ loop.index0 }}"
+              class="form-control text-center campo-leitura-lux"
+              data-lux-necessario="{{ lux_necessario }}"
+              placeholder="Lux obtido">
+          </div>
+          <div class="col-5 text-center">
+            <span class="badge status-leitura-badge" id="status_{{ loop.index0 }}">—</span>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+
+      <button type="submit" class="btn btn-salvar w-100">💾 SALVAR CHECKLIST</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+  // Conforme/NC calculado ao vivo por ponto, assim que a leitura é
+  // digitada — mesma regra do backend (status_para_leitura, em
+  // app/tipos/iluminacao/models.py): conforme se lux obtido >= lux
+  // necessário daquele ponto (fixo, vem do data-lux-necessario).
+  (function () {
+    document.querySelectorAll(".campo-leitura-lux").forEach(function (campo) {
+      const indice = campo.id.replace("lux_obtido_", "");
+      const badge = document.getElementById("status_" + indice);
+      const luxNecessario = parseFloat(campo.dataset.luxNecessario);
+
+      function atualizar() {
+        const valor = campo.value.replace(",", ".").trim();
+        if (valor === "") {
+          badge.textContent = "—";
+          badge.className = "badge status-leitura-badge";
+          return;
+        }
+        const luxObtido = parseFloat(valor);
+        if (isNaN(luxObtido)) {
+          badge.textContent = "?";
+          badge.className = "badge status-leitura-badge";
+          return;
+        }
+        const conforme = luxObtido >= luxNecessario;
+        badge.textContent = conforme ? "✅ Conforme" : "⚠️ NC";
+        badge.className = "badge status-leitura-badge " + (conforme ? "badge-conforme" : "badge-fora-padrao");
+      }
+
+      campo.addEventListener("input", atualizar);
+      atualizar();
+    });
+  })();
+</script>
+{% endblock %}

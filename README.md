@@ -380,6 +380,39 @@ responsável.
   tudo, sem exceção).
 - Modelo de dados e regras em `app/tipos/afericao_termometro/models.py`.
 
+## Regras de negócio — PAC 08-D - Monitoramento da Iluminação
+
+O primeiro tipo **mensal** do sistema (`categoria="mensal"` — a
+primeira vez que essa categoria deixa de estar vazia). Checklist com
+21 pontos fixos de medição de luminosidade, agrupados em 8 setores,
+cada um com seu próprio mínimo de lux exigido (`PONTOS_POR_SETOR`,
+em `app/tipos/iluminacao/models.py`). Conforme = lux obtido (lido no
+luxímetro) maior ou igual ao lux mínimo exigido daquele ponto
+específico.
+
+- **Sem tabela mestre** (diferente do PAC 08-F/08-G) — os pontos e
+  seus mínimos são uma constante Python só, igual ao PAC 08-E: não
+  há cadastro editável, então não precisa de `seed`.
+- **"Local" pode repetir entre setores** — "Barreira sanitária"
+  existe tanto em "Sala de cortes" (220 lux) quanto em "Expedição"
+  (220 lux), cada um com sua própria exigência. Por isso a identidade
+  de um ponto é sempre o par `(setor, local)`, nunca `local` sozinho
+  — tanto no formulário (índice global por ponto, mesmo truque do PAC
+  08-E) quanto no filtro do painel (`ponto=<setor>|<local>`, separado
+  por `|` e decodificado no backend).
+- **Sem campo de responsável** — diferente de todos os outros tipos
+  do sistema, este checklist não pede quem fez a medição, só a data e
+  as leituras. Segue o modelo de dados exatamente como especificado.
+- Registro é parcial (como o PAC 08-G, não como o PAC 08-E): só os
+  pontos com leitura preenchida naquele envio são salvos.
+- O painel (`/dashboard/iluminacao`) filtra por ponto específico
+  (dropdown agrupado por setor) e mostra NCs ao longo do tempo; a
+  legenda do gráfico se esconde sozinha com mais de 8 pontos juntos.
+- **Exportação em Excel não é uma matriz** (mesmo estilo do PAC
+  08-F) — uma linha por leitura, com as colunas exatas pedidas: Dia,
+  Setor, Local, Lux Necessário, Lux Obtido, C/NC.
+- Modelo de dados e regras em `app/tipos/iluminacao/models.py`.
+
 ## Estrutura do projeto
 
 ```
@@ -504,12 +537,13 @@ templates, e `/semanais` já mostra os três lado a lado (ver
 e `app/tipos/afericao_termometro/__init__.py` como referência de
 ponta a ponta pra um tipo não-diário — os dois últimos também mostram
 como plugar `seed` pra um tipo com tabela mestre, inclusive um
-segundo caso de tabela mestre pra comparar). `/mensais` ainda não tem
-nenhum tipo, então mostra "nenhum registro cadastrado ainda" — o
-próximo tipo com `categoria="mensal"` aparece lá do mesmo jeito. O painel
-(`/dashboard`) e a exportação continuam ignorando a categoria —
-sempre mostram/exportam todos os tipos juntos, independente de
-frequência.
+segundo caso de tabela mestre pra comparar). PAC 08-D (Monitoramento
+da Iluminação) foi o primeiro tipo a usar `categoria="mensal"`, e
+`/mensais` deixou de mostrar "nenhum registro cadastrado ainda" a
+partir dele — o próximo tipo mensal aparece do lado, do mesmo jeito
+(ver `app/tipos/iluminacao/__init__.py`). O painel (`/dashboard`) e a
+exportação continuam ignorando a categoria — sempre mostram/exportam
+todos os tipos juntos, independente de frequência.
 
 ### Alterando os campos de um tipo que já está em produção
 
@@ -828,12 +862,10 @@ command `pip install -r requirements.txt` e Start command
    Termômetros" (item 17 abaixo) e "⚙️ PAC 08-G - Aferição das
    Balanças" (item 18 abaixo). Um tipo semanal novo aparece aqui do
    lado, automaticamente.
-5. **Mensais** (`/mensais`) — mesma tela de grade, ainda vazia
-   ("Nenhum registro mensal cadastrado ainda"): é só a estrutura
-   pronta pra receber o primeiro tipo dessa frequência (ver "Como
-   adicionar um novo tipo de registro" acima — basta
-   `categoria="mensal"` no `TipoRegistro`, sem mexer em rota nem
-   template).
+5. **Mensais** (`/mensais`) — mesma tela de grade, já com o primeiro
+   tipo mensal cadastrado: "💡 PAC 08-D - Monitoramento da
+   Iluminação" (item 19 abaixo). Um tipo mensal novo aparece aqui do
+   lado, automaticamente.
 6. **Registro de temperatura** (`/temperatura`) — botões grandes por
    etapa, campo numérico de temperatura, campo de responsável (com
    sugestões dos últimos nomes digitados) e botão "Salvar" grande.
@@ -929,7 +961,16 @@ command `pip install -r requirements.txt` e Start command
     contrário do PAC 08-E, não é preciso preencher todas as balanças
     de uma vez: só as preenchidas são salvas no envio. "← Escolher
     outro tipo de registro" também volta pra `/semanais`.
-19. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
+19. **Registro de monitoramento da iluminação** (`/iluminacao`) — o
+    primeiro tipo **mensal**: campo de data, e os 21 pontos fixos
+    organizados por setor (mesmo padrão visual dos checklists
+    agrupados), cada um mostrando o mínimo de lux exigido (fixo,
+    informativo) e um campo numérico pra leitura do luxímetro — o
+    status conforme/NC aparece ao lado, calculado ao vivo. Registro é
+    parcial, como o PAC 08-G: só os pontos preenchidos são salvos.
+    Diferente de todos os outros tipos, não tem campo de responsável.
+    "← Escolher outro tipo de registro" volta pra `/mensais`.
+20. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
     direto para o painel daquele tipo; com dois ou mais (como hoje),
     mostra uma visão combinada por padrão (cartões de contagem por tipo
     + tabela unificada), com um seletor para entrar no painel completo
@@ -947,15 +988,16 @@ command `pip install -r requirements.txt` e Start command
     painel do PAC 17 segue o mesmo formato, com um filtro por
     equipamento e uma linha por equipamento no gráfico; a tela de
     Verificação RT não tem painel próprio (é só um log rápido, sem
-    conceito de conformidade). Os painéis do PAC 08-E e do PAC 08-G
-    seguem o mesmo formato do PAC 11: uma linha por setor (PAC 08-E)
-    ou por balança (PAC 08-G) no gráfico, com filtro pra isolar um
-    item específico — a legenda do gráfico se esconde sozinha quando
-    mais de 8 linhas aparecem juntas, pra não poluir a tela. O painel
-    do PAC 08-F segue a mesma ideia, mas com só 4 termômetros (a
-    legenda sempre fica visível) e o filtro comparando as duas
-    diferenças (quente e fria) no tooltip do gráfico.
-20. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
+    conceito de conformidade). Os painéis do PAC 08-E, do PAC 08-G e
+    do PAC 08-D seguem o mesmo formato do PAC 11: uma linha por setor
+    (PAC 08-E), por balança (PAC 08-G) ou por ponto (PAC 08-D) no
+    gráfico, com filtro pra isolar um item específico — a legenda do
+    gráfico se esconde sozinha quando mais de 8 linhas aparecem
+    juntas, pra não poluir a tela. O painel do PAC 08-F segue a mesma
+    ideia, mas com só 4 termômetros (a legenda sempre fica visível) e
+    o filtro comparando as duas diferenças (quente e fria) no
+    tooltip do gráfico.
+21. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
     colunas do tipo em questão, respeitando os filtros aplicados.
     Linhas fora do padrão vêm destacadas em vermelho na planilha. O
     monitoramento de peso e o de gramatura geram duas abas cada: um
@@ -976,7 +1018,9 @@ command `pip install -r requirements.txt` e Start command
     Temperatura de Processo e à maioria dos outros tipos), com as
     colunas exatas da planilha original: Dia, Nº Equipamento,
     Equipamento, as 4 leituras de temperatura, Variação Aceitável,
-    C/NC, Responsável. O PAC 17 também gera duas abas: "Integridade
+    C/NC, Responsável. O PAC 08-D segue o mesmo estilo flat do PAC
+    08-F (uma linha por leitura, não matriz), com as colunas: Dia,
+    Setor, Local, Lux Necessário, Lux Obtido, C/NC. O PAC 17 também gera duas abas: "Integridade
     Componentes" (os registros C/NC) e "Verificações RT" (o histórico
     de conferências rápidas, sempre com todos os equipamentos,
     ignorando o filtro do painel). Na visão combinada, "Exportar
