@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block titulo %}Registrar Monitoramento da Ventilação{% endblock %}
+
+{% block conteudo %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <a href="{{ url_for('home.semanais') }}" class="link-voltar">← Escolher outro tipo de registro</a>
+    <form method="post" action="{{ url_for('ventilacao.registrar') }}" id="formVentilacao" autocomplete="off">
+
+      <h2 class="titulo-secao">1. Data da checagem</h2>
+      <div class="mb-4">
+        <input
+          type="date"
+          name="data"
+          id="campoData"
+          class="form-control form-control-lg text-center"
+          value="{{ data_hoje }}"
+          required>
+        <div class="form-text">Checagem semanal — pode ser uma data anterior à de hoje.</div>
+      </div>
+
+      <h2 class="titulo-secao">2. Setores</h2>
+      <p class="text-muted small mb-3">
+        Cada setor avalia em conjunto ausência de condensação, odores, presença de gelo e
+        contra-fluxo de ar — um único status geral (C ou NC) por setor.
+      </p>
+
+      {% for grupo, setor in setores %}
+      {% if loop.changed(grupo) %}
+      <h3 class="subtitulo-grupo">{{ grupo }}</h3>
+      {% endif %}
+      <div class="item-pso mb-3">
+        <div class="item-pso-nome">{{ setor }}</div>
+        <div class="row g-2">
+          <div class="col-6">
+            <input
+              type="radio"
+              class="btn-check"
+              name="status_{{ loop.index0 }}"
+              id="c_{{ loop.index0 }}"
+              value="C"
+              required>
+            <label class="btn-status btn-status-c w-100" for="c_{{ loop.index0 }}">✅ C</label>
+          </div>
+          <div class="col-6">
+            <input
+              type="radio"
+              class="btn-check"
+              name="status_{{ loop.index0 }}"
+              id="nc_{{ loop.index0 }}"
+              value="NC"
+              required>
+            <label class="btn-status btn-status-nc w-100" for="nc_{{ loop.index0 }}">⚠️ NC</label>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+
+      <h2 class="titulo-secao">3. Responsável (Monitor)</h2>
+      <div class="mb-4">
+        <input
+          type="text"
+          name="responsavel"
+          id="campoResponsavel"
+          class="form-control form-control-lg"
+          placeholder="Nome do Monitor"
+          list="listaResponsaveisVentilacao"
+          required>
+        <datalist id="listaResponsaveisVentilacao">
+          {% for nome in responsaveis %}
+          <option value="{{ nome }}">
+          {% endfor %}
+        </datalist>
+      </div>
+
+      <button type="submit" class="btn btn-salvar w-100">💾 SALVAR CHECKLIST</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+  (function () {
+    const campoResponsavel = document.getElementById("campoResponsavel");
+    const salvo = localStorage.getItem("ultimoResponsavelVentilacao");
+    if (salvo) {
+      campoResponsavel.value = salvo;
+    }
+
+    document.getElementById("formVentilacao").addEventListener("submit", function () {
+      localStorage.setItem("ultimoResponsavelVentilacao", campoResponsavel.value);
+    });
+  })();
+</script>
+{% endblock %}

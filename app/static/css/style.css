@@ -305,7 +305,7 @@ body {
   border: 1px solid #dee2e6;
 }
 
-/* ---------- Checklist de PSOs (PAC 11) ---------- */
+/* ---------- Checklist com item + status C/NC (PAC 11, PAC 08-E) ---------- */
 
 .item-pso {
   background: #fff;
@@ -363,4 +363,21 @@ body {
 .btn-check:focus-visible + .btn-status {
   outline: 3px solid var(--navy);
   outline-offset: 2px;
+}
+
+/* ---------- Checklist agrupado por setor (PAC 08-E) ---------- */
+
+.subtitulo-grupo {
+  color: var(--azul);
+  font-size: 1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 1.5rem 0 0.75rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 2px solid var(--azul);
+}
+
+.subtitulo-grupo:first-of-type {
+  margin-top: 0;
 }

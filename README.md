@@ -223,6 +223,46 @@ avaliada só como C (conforme) ou NC (não conforme), como no PAC 11.
   à parte do checklist formal de integridade.
 - Modelo de dados e regras em `app/tipos/integridade_componente/models.py`.
 
+## Regras de negócio — PAC 08-E - Monitoramento da Ventilação
+
+O primeiro tipo **semanal** do sistema (`categoria="semanal"` — ver
+"Navegação por categoria" abaixo). Checklist com 22 setores fixos,
+cada um avaliado em conjunto quanto a 4 critérios (ausência de
+condensação, odores, presença de gelo, contra-fluxo de ar) e
+resumido num único status geral: C (conforme) ou NC (não conforme) —
+o formulário não distingue qual dos 4 critérios falhou, só se o
+setor está conforme como um todo. Uma checagem salva gera **22
+linhas** na tabela `registros_ventilacao` (uma por setor), todas com
+a mesma data e responsável.
+
+- Os 22 setores são fixos em `SETORES_POR_GRUPO`
+  (`app/tipos/ventilacao/models.py`), divididos em 2 grupos — a mesma
+  divisão da planilha em papel original:
+
+  | Grupo | Setores |
+  |---|---|
+  | Setor Produção | 14: Selagem, Túnel de congelamento 3, Embalagem primária, Setor de carne moída, Sala de lavação de caixas, Depósito de caixas limpas, Sala de esterilização de facas, Câmara de matéria-prima (carcaças), Sala de cortes, Túnel de congelamento 4, Setor de temperados, Barreira Sanitária Principal, Depósito de condimentos (almoxarifado), Depósito de embalagens primárias (almoxarifado) |
+  | Setor Embalagem Secundária e Expedição | 8: Barreira Sanitária Expedição, Câmara de congelados 1, Câmara de congelados 2, Abertura de caixas de papelão, Expedição, Câmara de resfriados, Depósito de embalagens secundárias, Embalagem Secundária |
+
+- Diferente da maioria dos outros tipos, `data` **não** tem valor
+  automático — é semanal, então o usuário escolhe a data da checagem
+  no formulário (não é sempre "hoje"). Não há campo de `horario`,
+  como no PAC 11.
+- Assim como o PAC 11, não há limite numérico nem cálculo: o status é
+  informado diretamente pelo usuário, e um checklist pode ser
+  reenviado no mesmo dia (correção) sem bloquear ou sobrescrever o
+  anterior.
+- O painel (`/dashboard/ventilacao`) filtra por setor (dropdown
+  agrupado pelos mesmos 2 grupos) e mostra NCs ao longo do tempo,
+  igual ao filtro por PSO do PAC 11; a legenda do gráfico se esconde
+  sozinha quando mais de 8 setores aparecem juntos (evita poluir o
+  gráfico com até 22 linhas).
+- Exportação em Excel replica o formato de matriz original: setores
+  nas linhas (sempre os 22, agrupados pelas mesmas 2 seções, cada
+  grupo com sua própria linha de cabeçalho destacada em azul), datas
+  do período nas colunas, C/NC em cada célula (NC em vermelho).
+- Modelo de dados e regras em `app/tipos/ventilacao/models.py`.
+
 ## Estrutura do projeto
 
 ```
@@ -331,14 +371,18 @@ splash, `/inicio` mostra três botões — Diárias, Semanais e Mensais —
 e cada um leva pra grade de tipos daquela frequência (`/diarias`,
 `/semanais`, `/mensais`, todas renderizadas pelo mesmo template
 `home_tipos.html`, filtrando `TIPOS_REGISTRO` pelo campo `categoria`
-de cada um via `tipos_por_categoria()`). Hoje só existem tipos
-diários, então `/semanais` e `/mensais` mostram uma mensagem de
-"nenhum registro cadastrado ainda" — a estrutura já está pronta, e um
-tipo novo com `categoria="semanal"` ou `"mensal"` passa a aparecer
-sozinho na tela certa, sem precisar tocar em `app/routes/home.py` nem
-nos templates. O painel (`/dashboard`) e a exportação continuam
-ignorando a categoria — sempre mostram/exportam todos os tipos juntos,
-independente de frequência.
+de cada um via `tipos_por_categoria()`). Os 9 tipos originais são
+diários; o PAC 08-E (Monitoramento da Ventilação) foi o primeiro tipo
+a usar `categoria="semanal"`, e apareceu em `/semanais` sozinho, sem
+precisar tocar em `app/routes/home.py` nem nos templates — só o
+`TipoRegistro(..., categoria="semanal")` no `__init__.py` do pacote
+(ver `app/tipos/ventilacao/__init__.py` como referência de ponta a
+ponta pra um tipo não-diário). `/mensais` ainda não tem nenhum tipo,
+então mostra "nenhum registro cadastrado ainda" — o próximo tipo com
+`categoria="mensal"` aparece lá do mesmo jeito. O painel
+(`/dashboard`) e a exportação continuam ignorando a categoria —
+sempre mostram/exportam todos os tipos juntos, independente de
+frequência.
 
 ### Alterando os campos de um tipo que já está em produção
 
@@ -651,38 +695,41 @@ command `pip install -r requirements.txt` e Start command
    de Máquinas" — os 9 tipos existentes hoje são todos diários. Ao
    clicar, leva ao formulário daquele tipo; "← Voltar" retorna pra
    `/inicio`.
-4. **Semanais** (`/semanais`) e **Mensais** (`/mensais`) — mesma tela
-   de grade, hoje vazia em ambas ("Nenhum registro semanal/mensal
-   cadastrado ainda"): é só a estrutura pronta pra receber os
-   primeiros tipos dessas frequências (ver "Como adicionar um novo
-   tipo de registro" acima — basta `categoria="semanal"` ou
+4. **Semanais** (`/semanais`) — mesma tela de grade de "Diárias", já
+   com o primeiro tipo semanal cadastrado: "🌬️ PAC 08-E -
+   Monitoramento da Ventilação" (ver item 13 abaixo). Um tipo semanal
+   novo aparece aqui do lado, automaticamente.
+5. **Mensais** (`/mensais`) — mesma tela de grade, ainda vazia
+   ("Nenhum registro mensal cadastrado ainda"): é só a estrutura
+   pronta pra receber o primeiro tipo dessa frequência (ver "Como
+   adicionar um novo tipo de registro" acima — basta
    `categoria="mensal"` no `TipoRegistro`, sem mexer em rota nem
    template).
-5. **Registro de temperatura** (`/temperatura`) — botões grandes por
+6. **Registro de temperatura** (`/temperatura`) — botões grandes por
    etapa, campo numérico de temperatura, campo de responsável (com
    sugestões dos últimos nomes digitados) e botão "Salvar" grande.
    Mostra alerta de sucesso ou de "fora do padrão" imediatamente após
    salvar.
-6. **Registro de temperatura de setor/câmara** (`/temperatura_setor`)
+7. **Registro de temperatura de setor/câmara** (`/temperatura_setor`)
    — mesma ideia, mas com um campo de busca no lugar da grade fixa de
    botões (17 setores é demais pra caber sem rolar a tela toda): a
    busca filtra os botões em tempo real por nome, sem diferenciar
    acento. Temperatura aceita negativos.
-7. **Registro de água de abastecimento** (`/agua_abastecimento`) —
+8. **Registro de água de abastecimento** (`/agua_abastecimento`) —
    botões grandes pro ponto de coleta (9 pontos fixos, mesmo padrão de
    etapa/setor), campos numéricos de pH e Cloro. O alerta indica
    especificamente qual dos dois está fora do padrão.
-8. **Registro de temperatura de produto** (`/temp_produto`) — botões
+9. **Registro de temperatura de produto** (`/temp_produto`) — botões
    pra local e categoria, campo de texto pro nome do produto (com
    sugestões dos últimos produtos digitados), temperatura numérica. O
    limite de conformidade depende da categoria escolhida (Corte vs.
    Carne Moída), não é fixo. Sem limite de quantos registros por dia.
-9. **Registro de temperatura de expedição** (`/temp_expedicao`) —
-   botões pra local (4 câmaras/pontos), e o seletor de categoria
-   aparece ou some dinamicamente dependendo do local escolhido ("Matéria
-   Prima - Quebra de Gelo" não tem categoria). O limite depende da
-   combinação local + categoria. Temperatura aceita negativos.
-10. **Registro de monitoramento de peso** (`/peso_produto`) — dados do
+10. **Registro de temperatura de expedição** (`/temp_expedicao`) —
+    botões pra local (4 câmaras/pontos), e o seletor de categoria
+    aparece ou some dinamicamente dependendo do local escolhido ("Matéria
+    Prima - Quebra de Gelo" não tem categoria). O limite depende da
+    combinação local + categoria. Temperatura aceita negativos.
+11. **Registro de monitoramento de peso** (`/peso_produto`) — dados do
     produto (nome, peso líquido nominal, peso da embalagem,
     responsável) e, em seguida, uma seção pra ir lançando pesagens
     individuais uma a uma (campo numérico + botão "+ Adicionar"): cada
@@ -693,7 +740,7 @@ command `pip install -r requirements.txt` e Start command
     depois de preencher os dois pesos; o botão "Finalizar registro do
     produto" só habilita com pelo menos uma pesagem lançada. Um único
     envio salva o registro do produto e todas as pesagens juntos.
-11. **Registro de monitoramento de gramatura** (`/gramatura`) — mesma
+12. **Registro de monitoramento de gramatura** (`/gramatura`) — mesma
     ideia e mesma tela do PAC 06-D, adaptada: dados do produto (nome,
     faixa de gramatura mínima e máxima, operador, responsável) e a
     mesma seção de pesagens individuais com lista visual
@@ -701,13 +748,13 @@ command `pip install -r requirements.txt` e Start command
     seção de pesagens libera assim que a faixa (mínima e máxima) é
     preenchida, e cada pesagem é comparada com ela: qualquer valor
     fora da faixa é NC.
-12. **Registro de monitoramento dos PSOs** (`/pso`) — checklist com os
+13. **Registro de monitoramento dos PSOs** (`/pso`) — checklist com os
     7 PSOs fixos, cada um com um par de botões grandes "✅ C" (verde) e
     "⚠️ NC" (vermelho), seguido do campo Responsável (Monitor). O
     navegador exige uma seleção (C ou NC) em cada um dos 7 antes de
     deixar enviar; um único envio salva o status dos 7 PSOs do dia de
     uma vez.
-13. **Registro de integridade de componentes** (`/integridade_componente`)
+14. **Registro de integridade de componentes** (`/integridade_componente`)
     — escolha do equipamento (3 botões, cada um com o nome do
     componente entre parênteses), momento da checagem (a opção
     "Troca de Lâminas" só aparece pra Máquina de Cubos e Iscas),
@@ -715,13 +762,23 @@ command `pip install -r requirements.txt` e Start command
     registrar depois), status C/NC (mesmo par de botões verde/vermelho
     do PAC 11) e responsável. O alerta de NC destaca o risco de
     contaminação física do produto.
-14. **Verificação RT** (`/integridade_componente/verificacao-rt`, com
+15. **Verificação RT** (`/integridade_componente/verificacao-rt`, com
     atalho fixo "⚡ Verificação RT" na barra de navegação — a única
     ação disponível em qualquer tela do sistema) — três botões, um
     por equipamento; tocar em um já salva a data/hora e o
     equipamento, sem formulário. Mostra as verificações já feitas
     hoje logo abaixo, como confirmação visual.
-15. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
+16. **Registro de monitoramento da ventilação** (`/ventilacao`) — o
+    primeiro tipo semanal: campo de data (o usuário escolhe qual
+    checagem está registrando, não é sempre "hoje"), os 22 setores
+    fixos organizados visualmente em 2 grupos com cabeçalho separador
+    ("Setor Produção" e "Setor Embalagem Secundária e Expedição"),
+    cada um com o mesmo par de botões "✅ C"/"⚠️ NC" do PAC 11, e
+    Responsável (Monitor). Um único envio salva os 22 setores de uma
+    vez. "← Escolher outro tipo de registro" volta pra `/semanais`
+    (não pra `/inicio`), mesmo padrão dos tipos diários voltando pra
+    `/diarias`.
+17. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
     direto para o painel daquele tipo; com dois ou mais (como hoje),
     mostra uma visão combinada por padrão (cartões de contagem por tipo
     + tabela unificada), com um seletor para entrar no painel completo
@@ -740,7 +797,7 @@ command `pip install -r requirements.txt` e Start command
     equipamento e uma linha por equipamento no gráfico; a tela de
     Verificação RT não tem painel próprio (é só um log rápido, sem
     conceito de conformidade).
-16. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
+18. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
     colunas do tipo em questão, respeitando os filtros aplicados.
     Linhas fora do padrão vêm destacadas em vermelho na planilha. O
     monitoramento de peso e o de gramatura geram duas abas cada: um
@@ -750,13 +807,16 @@ command `pip install -r requirements.txt` e Start command
     matriz original: PSOs nas linhas (sempre os 7), um dia do período
     por coluna, C/NC em cada célula (NC destacado em vermelho) — esse
     formato ignora o filtro de PSO do painel de propósito, pra sempre
-    mostrar o checklist completo. O PAC 17 também gera duas abas:
-    "Integridade Componentes" (os registros C/NC) e "Verificações RT"
-    (o histórico de conferências rápidas, sempre com todos os
-    equipamentos, ignorando o filtro do painel). Na visão combinada,
-    "Exportar tudo" gera um único arquivo com uma aba por tipo
-    (`/exportar?tipo=todos`, duas abas para cada um desses três
-    tipos).
+    mostrar o checklist completo. O PAC 08-E segue o mesmo formato de
+    matriz, mas com os 22 setores nas linhas, agrupados em 2 seções
+    (cada uma com sua própria linha de cabeçalho destacada em azul) —
+    também ignora o filtro de setor do painel. O PAC 17 também gera
+    duas abas: "Integridade Componentes" (os registros C/NC) e
+    "Verificações RT" (o histórico de conferências rápidas, sempre
+    com todos os equipamentos, ignorando o filtro do painel). Na
+    visão combinada, "Exportar tudo" gera um único arquivo com uma
+    aba por tipo (`/exportar?tipo=todos`, duas abas para os tipos que
+    têm detalhe/verificação separados).
 
 ## Paleta de cores
 
