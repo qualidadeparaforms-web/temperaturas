@@ -64,6 +64,16 @@ class TipoRegistro:
     isso o padrão — tipos novos de outra frequência passam
     categoria="semanal"/"mensal" explicitamente."""
 
+    seed: Callable[[], None] | None = None
+    """Opcional: função sem argumentos, chamada uma vez a cada boot
+    (depois de db.create_all()/_migrar_colunas_faltantes, ver
+    app/__init__.py), para tipos que dependem de uma tabela mestre com
+    dados fixos (ex.: o cadastro de balanças do PAC 08-G) — garante que
+    ela exista populada mesmo num banco novo/vazio. Precisa ser
+    idempotente (seguro rodar em todo boot, mesmo com a tabela já
+    populada ou com edições manuais feitas depois). Tipos que não
+    precisam disso (a maioria) deixam no padrão None."""
+
     def __post_init__(self) -> None:
         if self.categoria not in CATEGORIAS_VALIDAS:
             raise ValueError(

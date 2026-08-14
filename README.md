@@ -263,6 +263,53 @@ a mesma data e responsável.
   do período nas colunas, C/NC em cada célula (NC em vermelho).
 - Modelo de dados e regras em `app/tipos/ventilacao/models.py`.
 
+## Regras de negócio — PAC 08-G - Aferição das Balanças
+
+O segundo tipo semanal (`categoria="semanal"`), e o primeiro a
+depender de uma **tabela mestre** — o cadastro fixo das 20 balanças
+da fábrica (tabela `balancas`), separado da tabela de leituras
+(`registros_afericao_balanca`). Uma checagem consiste em pesar uma
+massa de teste padrão de 1000g em cada balança e anotar a leitura
+mostrada; o status (C/NC) é **calculado automaticamente** a partir da
+leitura, não escolhido pelo usuário como nos outros checklists (PAC
+11, PAC 08-E).
+
+- **Massa de teste e faixa aceitável são fixas para todas as
+  balanças** — não há configuração por balança: `MASSA_TESTE_G =
+  1000.0`, faixa `FAIXA_MINIMA_G = 999.0` a `FAIXA_MAXIMA_G = 1001.0`
+  (±1g), em `app/tipos/afericao_balanca/models.py`.
+  `status_para_leitura(leitura)` decide C ou NC a partir daí — usada
+  tanto no backend (ao salvar) quanto reimplementada em JS no
+  formulário (feedback ao vivo, sem precisar salvar pra saber).
+- **Cadastro mestre auto-populado**: as 20 balanças (setor,
+  equipamento, nº balança, nº série, marca, carga máxima) vêm
+  hard-coded em `BALANCAS_SEED` e são inseridas na tabela `balancas`
+  automaticamente no primeiro boot, via `seed_balancas_se_vazio()`.
+  Isso usa uma extensão nova do `TipoRegistro`: o campo opcional
+  `seed` (`app/tipos/base.py`) — uma função sem argumentos que
+  `app/__init__.py` chama a cada boot, depois da migração de colunas,
+  pra qualquer tipo que precise de uma tabela mestre com dados fixos.
+  É idempotente (só insere se a tabela estiver vazia), então é seguro
+  chamar em todo boot e não sobrescreve edições manuais feitas depois
+  direto no banco. Tipos que não precisam disso (a grande maioria)
+  simplesmente não passam `seed=...` — fica `None` por padrão.
+- **Registro parcial, ao contrário do PAC 08-E**: não é obrigatório
+  preencher a leitura de todas as 20 balanças na mesma checagem — só
+  as balanças com leitura preenchida naquele envio geram linha
+  (`RegistroAfericaoBalanca`). Isso porque a fábrica pode aferir um
+  subconjunto numa semana e completar o resto depois.
+- Aceita tanto ponto quanto vírgula decimal na leitura (`"998,5"` ou
+  `"998.5"`) — convertido no backend antes de calcular o status.
+- O painel (`/dashboard/afericao_balanca`) filtra por balança
+  específica (dropdown agrupado por setor) e mostra NCs ao longo do
+  tempo, mesmo padrão do PAC 08-E.
+- Exportação em Excel replica o formato de matriz original: as 20
+  balanças nas linhas (agrupadas por setor, cada grupo com sua
+  própria linha de cabeçalho em azul), datas nas colunas, cada célula
+  com leitura (g) **e** status juntos (ex.: "1000.0g (C)"), NC
+  destacado em vermelho.
+- Modelo de dados e regras em `app/tipos/afericao_balanca/models.py`.
+
 ## Estrutura do projeto
 
 ```
@@ -343,8 +390,14 @@ Usando `app/tipos/temperatura/` como referência, para um novo tipo
      3 funções acima) e chama `registrar_tipo(TIPO, formulario_bp, dashboard_bp)`.
      Passe também `categoria="semanal"` ou `categoria="mensal"` se o
      novo tipo não for diário (o padrão é `"diaria"`, usado pelos 9
-     tipos de hoje) — é só isso que decide se ele aparece em
-     `/diarias`, `/semanais` ou `/mensais`.
+     tipos originais) — é só isso que decide se ele aparece em
+     `/diarias`, `/semanais` ou `/mensais`. Se o tipo depender de uma
+     tabela mestre com dados fixos que precisam existir populados
+     desde o primeiro boot (ex.: um cadastro de equipamentos — ver
+     PAC 08-G), passe também `seed=<função sem argumentos>`; ela é
+     chamada automaticamente a cada boot (precisa ser idempotente —
+     ver `seed_balancas_se_vazio` em
+     `app/tipos/afericao_balanca/models.py` como referência).
 
 2. **Registre o pacote**: adicione `from app.tipos import <slug>` no
    final de `app/tipos/__init__.py`.
@@ -372,14 +425,16 @@ e cada um leva pra grade de tipos daquela frequência (`/diarias`,
 `/semanais`, `/mensais`, todas renderizadas pelo mesmo template
 `home_tipos.html`, filtrando `TIPOS_REGISTRO` pelo campo `categoria`
 de cada um via `tipos_por_categoria()`). Os 9 tipos originais são
-diários; o PAC 08-E (Monitoramento da Ventilação) foi o primeiro tipo
-a usar `categoria="semanal"`, e apareceu em `/semanais` sozinho, sem
-precisar tocar em `app/routes/home.py` nem nos templates — só o
-`TipoRegistro(..., categoria="semanal")` no `__init__.py` do pacote
-(ver `app/tipos/ventilacao/__init__.py` como referência de ponta a
-ponta pra um tipo não-diário). `/mensais` ainda não tem nenhum tipo,
-então mostra "nenhum registro cadastrado ainda" — o próximo tipo com
-`categoria="mensal"` aparece lá do mesmo jeito. O painel
+diários; PAC 08-E (Monitoramento da Ventilação) e PAC 08-G (Aferição
+das Balanças) são semanais — cada um só precisou de
+`categoria="semanal"` no seu `TipoRegistro(...)`, sem tocar em
+`app/routes/home.py` nem nos templates, e `/semanais` já mostra os
+dois lado a lado (ver `app/tipos/ventilacao/__init__.py` e
+`app/tipos/afericao_balanca/__init__.py` como referência de ponta a
+ponta pra um tipo não-diário — o segundo também mostra como plugar
+`seed` pra um tipo com tabela mestre). `/mensais` ainda não tem
+nenhum tipo, então mostra "nenhum registro cadastrado ainda" — o
+próximo tipo com `categoria="mensal"` aparece lá do mesmo jeito. O painel
 (`/dashboard`) e a exportação continuam ignorando a categoria —
 sempre mostram/exportam todos os tipos juntos, independente de
 frequência.
@@ -696,9 +751,10 @@ command `pip install -r requirements.txt` e Start command
    clicar, leva ao formulário daquele tipo; "← Voltar" retorna pra
    `/inicio`.
 4. **Semanais** (`/semanais`) — mesma tela de grade de "Diárias", já
-   com o primeiro tipo semanal cadastrado: "🌬️ PAC 08-E -
-   Monitoramento da Ventilação" (ver item 13 abaixo). Um tipo semanal
-   novo aparece aqui do lado, automaticamente.
+   com os 2 tipos semanais cadastrados: "🌬️ PAC 08-E - Monitoramento
+   da Ventilação" (item 16 abaixo) e "⚙️ PAC 08-G - Aferição das
+   Balanças" (item 17 abaixo). Um tipo semanal novo aparece aqui do
+   lado, automaticamente.
 5. **Mensais** (`/mensais`) — mesma tela de grade, ainda vazia
    ("Nenhum registro mensal cadastrado ainda"): é só a estrutura
    pronta pra receber o primeiro tipo dessa frequência (ver "Como
@@ -778,7 +834,16 @@ command `pip install -r requirements.txt` e Start command
     vez. "← Escolher outro tipo de registro" volta pra `/semanais`
     (não pra `/inicio`), mesmo padrão dos tipos diários voltando pra
     `/diarias`.
-17. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
+17. **Registro de aferição das balanças** (`/afericao_balanca`) — o
+    segundo tipo semanal: campo de data, e as 20 balanças cadastradas
+    (organizadas em grupos por setor, mesmo padrão visual do PAC
+    08-E), cada uma com um campo numérico pra leitura da massa de
+    teste (1000g) — o status conforme/NC aparece ao lado, calculado
+    ao vivo conforme digita, sem precisar salvar pra saber. Ao
+    contrário do PAC 08-E, não é preciso preencher todas as balanças
+    de uma vez: só as preenchidas são salvas no envio. "← Escolher
+    outro tipo de registro" também volta pra `/semanais`.
+18. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
     direto para o painel daquele tipo; com dois ou mais (como hoje),
     mostra uma visão combinada por padrão (cartões de contagem por tipo
     + tabela unificada), com um seletor para entrar no painel completo
@@ -796,8 +861,12 @@ command `pip install -r requirements.txt` e Start command
     painel do PAC 17 segue o mesmo formato, com um filtro por
     equipamento e uma linha por equipamento no gráfico; a tela de
     Verificação RT não tem painel próprio (é só um log rápido, sem
-    conceito de conformidade).
-18. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
+    conceito de conformidade). Os painéis dos 2 tipos semanais seguem
+    o mesmo formato do PAC 11: uma linha por setor (PAC 08-E) ou por
+    balança (PAC 08-G) no gráfico, com filtro pra isolar um item
+    específico — a legenda do gráfico se esconde sozinha quando mais
+    de 8 linhas aparecem juntas, pra não poluir a tela.
+19. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
     colunas do tipo em questão, respeitando os filtros aplicados.
     Linhas fora do padrão vêm destacadas em vermelho na planilha. O
     monitoramento de peso e o de gramatura geram duas abas cada: um
@@ -810,11 +879,14 @@ command `pip install -r requirements.txt` e Start command
     mostrar o checklist completo. O PAC 08-E segue o mesmo formato de
     matriz, mas com os 22 setores nas linhas, agrupados em 2 seções
     (cada uma com sua própria linha de cabeçalho destacada em azul) —
-    também ignora o filtro de setor do painel. O PAC 17 também gera
-    duas abas: "Integridade Componentes" (os registros C/NC) e
-    "Verificações RT" (o histórico de conferências rápidas, sempre
-    com todos os equipamentos, ignorando o filtro do painel). Na
-    visão combinada, "Exportar tudo" gera um único arquivo com uma
+    também ignora o filtro de setor do painel. O PAC 08-G usa a mesma
+    matriz agrupada por setor, mas com as 20 balanças nas linhas e
+    cada célula mostrando leitura **e** status juntos (ex.: "1000.0g
+    (C)"), também ignorando o filtro de balança do painel. O PAC 17
+    também gera duas abas: "Integridade Componentes" (os registros
+    C/NC) e "Verificações RT" (o histórico de conferências rápidas,
+    sempre com todos os equipamentos, ignorando o filtro do painel).
+    Na visão combinada, "Exportar tudo" gera um único arquivo com uma
     aba por tipo (`/exportar?tipo=todos`, duas abas para os tipos que
     têm detalhe/verificação separados).
 

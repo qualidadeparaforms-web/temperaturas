@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block titulo %}Registrar Aferição das Balanças{% endblock %}
+
+{% block conteudo %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <a href="{{ url_for('home.semanais') }}" class="link-voltar">← Escolher outro tipo de registro</a>
+    <form method="post" action="{{ url_for('afericao_balanca.registrar') }}" id="formAfericaoBalanca" autocomplete="off">
+
+      <h2 class="titulo-secao">1. Data da checagem</h2>
+      <div class="mb-4">
+        <input
+          type="date"
+          name="data"
+          id="campoData"
+          class="form-control form-control-lg text-center"
+          value="{{ data_hoje }}"
+          required>
+        <div class="form-text">Checagem semanal — pode ser uma data anterior à de hoje.</div>
+      </div>
+
+      <h2 class="titulo-secao">2. Leitura da massa de teste (1000g)</h2>
+      <p class="text-muted small mb-3">
+        Coloque a massa de teste de 1000g em cada balança e digite a leitura mostrada (em gramas).
+        Conforme só se preencher: não precisa aferir todas nesta checagem — só as preenchidas são salvas.
+        Faixa aceitável: 999,0g a 1001,0g.
+      </p>
+
+      {% for balanca in balancas %}
+      {% if loop.changed(balanca.setor) %}
+      <h3 class="subtitulo-grupo">{{ balanca.setor }}</h3>
+      {% endif %}
+      <div class="item-pso mb-3">
+        <div class="item-pso-nome">
+          Equip. {{ balanca.equipamento }}{% if balanca.numero_balanca %} — Nº {{ balanca.numero_balanca }}{% endif %}
+          <span class="text-muted small">({{ balanca.marca }}, {{ balanca.carga_maxima }})</span>
+        </div>
+        <div class="row g-2 align-items-center">
+          <div class="col-7">
+            <input
+              type="number"
+              step="0.1"
+              inputmode="decimal"
+              name="leitura_{{ balanca.id }}"
+              id="leitura_{{ balanca.id }}"
+              class="form-control form-control-lg text-center campo-leitura-balanca"
+              placeholder="Leitura (g)">
+          </div>
+          <div class="col-5 text-center">
+            <span class="badge status-leitura-badge" id="status_{{ balanca.id }}">—</span>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+
+      <h2 class="titulo-secao">3. Responsável (Monitor)</h2>
+      <div class="mb-4">
+        <input
+          type="text"
+          name="responsavel"
+          id="campoResponsavel"
+          class="form-control form-control-lg"
+          placeholder="Nome do Monitor"
+          list="listaResponsaveisAfericaoBalanca"
+          required>
+        <datalist id="listaResponsaveisAfericaoBalanca">
+          {% for nome in responsaveis %}
+          <option value="{{ nome }}">
+          {% endfor %}
+        </datalist>
+      </div>
+
+      <button type="submit" class="btn btn-salvar w-100">💾 SALVAR AFERIÇÃO</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+  (function () {
+    const campoResponsavel = document.getElementById("campoResponsavel");
+    const salvo = localStorage.getItem("ultimoResponsavelAfericaoBalanca");
+    if (salvo) {
+      campoResponsavel.value = salvo;
+    }
+
+    document.getElementById("formAfericaoBalanca").addEventListener("submit", function () {
+      localStorage.setItem("ultimoResponsavelAfericaoBalanca", campoResponsavel.value);
+    });
+  })();
+
+  // Conforme/NC calculado ao vivo, sem precisar salvar pra saber —
+  // mesma faixa fixa usada no backend (status_para_leitura, em
+  // app/tipos/afericao_balanca/models.py): 999,0g a 1001,0g.
+  (function () {
+    const FAIXA_MINIMA = 999.0;
+    const FAIXA_MAXIMA = 1001.0;
+
+    document.querySelectorAll(".campo-leitura-balanca").forEach(function (campo) {
+      const badge = document.getElementById("status_" + campo.id.replace("leitura_", ""));
+
+      function atualizar() {
+        const valor = campo.value.replace(",", ".").trim();
+        if (valor === "") {
+          badge.textContent = "—";
+          badge.className = "badge status-leitura-badge";
+          return;
+        }
+        const leitura = parseFloat(valor);
+        if (isNaN(leitura)) {
+          badge.textContent = "?";
+          badge.className = "badge status-leitura-badge";
+          return;
+        }
+        const conforme = leitura >= FAIXA_MINIMA && leitura <= FAIXA_MAXIMA;
+        badge.textContent = conforme ? "✅ Conforme" : "⚠️ NC";
+        badge.className = "badge status-leitura-badge " + (conforme ? "badge-conforme" : "badge-fora-padrao");
+      }
+
+      campo.addEventListener("input", atualizar);
+      atualizar();
+    });
+  })();
+</script>
+{% endblock %}

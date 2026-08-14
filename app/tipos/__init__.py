@@ -21,3 +21,4 @@ from app.tipos import gramatura  # noqa: E402,F401
 from app.tipos import pso  # noqa: E402,F401
 from app.tipos import integridade_componente  # noqa: E402,F401
 from app.tipos import ventilacao  # noqa: E402,F401
+from app.tipos import afericao_balanca  # noqa: E402,F401

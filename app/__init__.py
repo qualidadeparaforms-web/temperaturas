@@ -24,7 +24,7 @@ def create_app(config_class: type = Config) -> Flask:
     from app.routes.backup import backup_bp
     from app.routes.dashboard import dashboard_bp
     from app.routes.home import home_bp
-    from app.tipos import blueprints_registrados
+    from app.tipos import TIPOS_REGISTRO, blueprints_registrados
 
     app.register_blueprint(home_bp)
     app.register_blueprint(dashboard_bp)
@@ -36,6 +36,9 @@ def create_app(config_class: type = Config) -> Flask:
     with app.app_context():
         db.create_all()
         _migrar_colunas_faltantes(app)
+        for tipo in TIPOS_REGISTRO:
+            if tipo.seed is not None:
+                tipo.seed()
 
     _iniciar_backup_automatico(app)
 

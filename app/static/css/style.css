@@ -365,7 +365,7 @@ body {
   outline-offset: 2px;
 }
 
-/* ---------- Checklist agrupado por setor (PAC 08-E) ---------- */
+/* ---------- Checklist agrupado por setor (PAC 08-E, PAC 08-G) ---------- */
 
 .subtitulo-grupo {
   color: var(--azul);
@@ -380,4 +380,13 @@ body {
 
 .subtitulo-grupo:first-of-type {
   margin-top: 0;
+}
+
+.status-leitura-badge {
+  /* Feedback ao vivo de conforme/NC no formulário do PAC 08-G,
+     calculado no navegador conforme a leitura é digitada — usa as
+     mesmas classes badge-conforme/badge-fora-padrao do painel, só
+     com fonte maior pra ficar legível no tablet. */
+  font-size: 1rem;
+  padding: 0.5rem 0.75rem;
 }
