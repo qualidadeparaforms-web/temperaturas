@@ -72,23 +72,76 @@ def seed_termometros_se_vazio() -> None:
 
 
 class RegistroAfericaoTermometro(db.Model):
-    """Uma aferição por termômetro por checagem. Compara o termômetro
-    padrão contra o equipamento em duas condições (quente e fria); o
-    status é sempre calculado a partir das 4 leituras (ver
-    status_para_leituras), nunca escolhido pelo usuário."""
+    """Uma SESSÃO de aferição — a leitura do termômetro padrão
+    (quente e fria) é tomada uma única vez por sessão e vale pra
+    todos os equipamentos comparados nela (ver `leituras`, em
+    LeituraTermometroEquipamento). Antes desta reformulação, o padrão
+    era lido de novo pra cada equipamento; esta é a estrutura correta
+    pro fluxo real de uso: 1 leitura de padrão quente, N leituras de
+    equipamento quente, 1 leitura de padrão fria, N leituras de
+    equipamento fria."""
 
     __tablename__ = "registros_afericao_termometro"
 
     id = db.Column(db.Integer, primary_key=True)
-    termometro_id = db.Column(db.Integer, db.ForeignKey("termometros.id"), nullable=False, index=True)
     data = db.Column(db.Date, nullable=False, index=True)
     temp_quente_padrao = db.Column(db.Float, nullable=False)
-    temp_quente_equipamento = db.Column(db.Float, nullable=False)
     temp_fria_padrao = db.Column(db.Float, nullable=False)
-    temp_fria_equipamento = db.Column(db.Float, nullable=False)
-    status = db.Column(db.String(2), nullable=False)
     responsavel = db.Column(db.String(100), nullable=False)
     criado_em = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    leituras = db.relationship(
+        "LeituraTermometroEquipamento",
+        backref="registro",
+        cascade="all, delete-orphan",
+        order_by="LeituraTermometroEquipamento.id",
+    )
+
+    @property
+    def total_equipamentos(self) -> int:
+        return len(self.leituras)
+
+    @property
+    def total_nc(self) -> int:
+        return sum(1 for leitura in self.leituras if not leitura.conforme)
+
+    @property
+    def conforme(self) -> bool:
+        """A sessão inteira é conforme quando nenhum equipamento deu NC."""
+        return self.total_nc == 0
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "data": self.data.strftime("%d/%m/%Y"),
+            "data_iso": self.data.isoformat(),
+            "temp_quente_padrao": self.temp_quente_padrao,
+            "temp_fria_padrao": self.temp_fria_padrao,
+            "responsavel": self.responsavel,
+            "total_equipamentos": self.total_equipamentos,
+            "total_nc": self.total_nc,
+            "conforme": self.conforme,
+        }
+
+
+class LeituraTermometroEquipamento(db.Model):
+    """Uma linha por equipamento aferido dentro de uma sessão
+    (RegistroAfericaoTermometro) — as leituras do padrão (quente e
+    fria) vêm da sessão via `self.registro`, não são repetidas aqui.
+    O status é sempre calculado a partir das 4 temperaturas (2 do
+    equipamento + 2 herdadas da sessão via `registro`), nunca
+    escolhido pelo usuário."""
+
+    __tablename__ = "leituras_termometro_equipamento"
+
+    id = db.Column(db.Integer, primary_key=True)
+    registro_id = db.Column(
+        db.Integer, db.ForeignKey("registros_afericao_termometro.id"), nullable=False, index=True
+    )
+    termometro_id = db.Column(db.Integer, db.ForeignKey("termometros.id"), nullable=False, index=True)
+    temp_quente_equipamento = db.Column(db.Float, nullable=False)
+    temp_fria_equipamento = db.Column(db.Float, nullable=False)
+    status = db.Column(db.String(2), nullable=False)
 
     termometro = db.relationship("Termometro")
 
@@ -98,27 +151,27 @@ class RegistroAfericaoTermometro(db.Model):
 
     @property
     def diferenca_quente(self) -> float:
-        return abs(self.temp_quente_padrao - self.temp_quente_equipamento)
+        return abs(self.registro.temp_quente_padrao - self.temp_quente_equipamento)
 
     @property
     def diferenca_fria(self) -> float:
-        return abs(self.temp_fria_padrao - self.temp_fria_equipamento)
+        return abs(self.registro.temp_fria_padrao - self.temp_fria_equipamento)
 
     def to_dict(self) -> dict:
         return {
             "id": self.id,
-            "data": self.data.strftime("%d/%m/%Y"),
-            "data_iso": self.data.isoformat(),
+            "data": self.registro.data.strftime("%d/%m/%Y"),
+            "data_iso": self.registro.data.isoformat(),
+            "responsavel": self.registro.responsavel,
             "termometro_id": self.termometro_id,
             "termometro": self.termometro.rotulo() if self.termometro else "?",
             "codigo": self.termometro.codigo if self.termometro else "",
-            "temp_quente_padrao": self.temp_quente_padrao,
+            "temp_quente_padrao": self.registro.temp_quente_padrao,
             "temp_quente_equipamento": self.temp_quente_equipamento,
-            "temp_fria_padrao": self.temp_fria_padrao,
+            "temp_fria_padrao": self.registro.temp_fria_padrao,
             "temp_fria_equipamento": self.temp_fria_equipamento,
             "diferenca_quente": round(self.diferenca_quente, 2),
             "diferenca_fria": round(self.diferenca_fria, 2),
             "status": self.status,
-            "responsavel": self.responsavel,
             "conforme": self.conforme,
         }

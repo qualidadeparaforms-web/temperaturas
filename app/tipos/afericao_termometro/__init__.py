@@ -8,12 +8,13 @@ TIPO = TipoRegistro(
     nome="PAC 08-F - Aferição dos Termômetros",
     icone="🎯",
     tabela="registros_afericao_termometro",
-    colunas_backup=[
-        "id", "termometro_id", "data",
-        "temp_quente_padrao", "temp_quente_equipamento",
-        "temp_fria_padrao", "temp_fria_equipamento",
-        "status", "responsavel",
-    ],
+    # Mesmo padrão do PAC 06-D/06-E (peso_produto/gramatura): o CSV de
+    # backup automático cobre só a tabela "principal" (a sessão) —
+    # leituras_termometro_equipamento (a tabela filha, com as leituras
+    # por equipamento) fica de fora do CSV por tipo, igual às
+    # "pesagens individuais" desses outros dois tipos. O backup
+    # binário (.db) sempre inclui tudo, sem exceção.
+    colunas_backup=["id", "data", "temp_quente_padrao", "temp_fria_padrao", "responsavel"],
     contar=contar,
     linhas_combinadas=linhas_combinadas,
     adicionar_planilha=adicionar_planilha,

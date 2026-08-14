@@ -7,6 +7,7 @@ from app.extensions import db
 from app.timezone_utils import agora_brasilia
 from app.tipos.afericao_termometro.models import (
     TERMOMETRO_PADRAO_CODIGO,
+    LeituraTermometroEquipamento,
     RegistroAfericaoTermometro,
     Termometro,
     status_para_leituras,
@@ -14,27 +15,21 @@ from app.tipos.afericao_termometro.models import (
 
 formulario_bp = Blueprint("afericao_termometro", __name__, url_prefix="/afericao_termometro")
 
-CAMPOS_TEMPERATURA = ("quente_padrao", "quente_equipamento", "fria_padrao", "fria_equipamento")
-ROTULOS_CAMPOS = {
-    "quente_padrao": "quente do padrão",
-    "quente_equipamento": "quente do equipamento",
-    "fria_padrao": "fria do padrão",
-    "fria_equipamento": "fria do equipamento",
-}
-
 
 @formulario_bp.route("", methods=["GET"])
 def index():
     """Tela de registro do PAC 08-F — Aferição dos Termômetros.
 
-    Compara cada um dos 4 termômetros/equipamentos cadastrados contra
-    o termômetro padrão de referência (TERMOMETRO_PADRAO_CODIGO), nas
-    condições quente e fria. O status C/NC é calculado ao vivo no
-    navegador conforme os 4 campos de cada equipamento são
-    preenchidos (ver script abaixo) e recalculado no servidor ao
-    salvar. Diferente do PAC 08-G, aqui as 4 leituras dos 4
-    equipamentos são todas obrigatórias — um único POST grava a
-    aferição completa de uma vez (ver `registrar`).
+    Fluxo em 4 passos: 1) temperatura quente do padrão (uma única
+    leitura pra sessão inteira), 2) temperatura quente de cada um dos
+    4 equipamentos, 3) temperatura fria do padrão (de novo, uma única
+    leitura), 4) temperatura fria de cada equipamento. O status C/NC
+    de cada equipamento é calculado ao vivo no navegador assim que
+    suas duas leituras (quente e fria) e as duas leituras do padrão
+    estiverem preenchidas (ver script no template) e recalculado no
+    servidor ao salvar. As 4 leituras dos 4 equipamentos + as 2 do
+    padrão são todas obrigatórias — um único POST grava a sessão
+    inteira de uma vez (ver `registrar`).
     """
     termometros = Termometro.query.order_by(Termometro.id.asc()).all()
     recentes = (
@@ -52,6 +47,18 @@ def index():
         data_hoje=agora_brasilia().date().isoformat(),
         termometro_padrao_codigo=TERMOMETRO_PADRAO_CODIGO,
     )
+
+
+def _ler_temperatura(nome_campo: str, rotulo: str, erros: list) -> float | None:
+    valor_str = (request.form.get(nome_campo) or "").strip()
+    if not valor_str:
+        erros.append(f"Informe a temperatura {rotulo}.")
+        return None
+    try:
+        return float(valor_str.replace(",", "."))
+    except ValueError:
+        erros.append(f"Temperatura {rotulo} inválida.")
+        return None
 
 
 @formulario_bp.route("/registrar", methods=["POST"])
@@ -73,47 +80,49 @@ def registrar():
     if not responsavel:
         erros.append("Informe o responsável.")
 
+    temp_quente_padrao = _ler_temperatura("quente_padrao", "quente do padrão", erros)
+    temp_fria_padrao = _ler_temperatura("fria_padrao", "fria do padrão", erros)
+
     termometros = Termometro.query.order_by(Termometro.id.asc()).all()
-    leituras = []
+    leituras_equipamento = []
     for termometro in termometros:
-        valores = {}
-        for campo in CAMPOS_TEMPERATURA:
-            valor_str = (request.form.get(f"{campo}_{termometro.id}") or "").strip()
-            if not valor_str:
-                erros.append(f'Informe a temperatura {ROTULOS_CAMPOS[campo]} de "{termometro.rotulo()}".')
-                continue
-            try:
-                valores[campo] = float(valor_str.replace(",", "."))
-            except ValueError:
-                erros.append(f'Temperatura {ROTULOS_CAMPOS[campo]} inválida para "{termometro.rotulo()}".')
-        if len(valores) == len(CAMPOS_TEMPERATURA):
-            leituras.append((termometro, valores))
+        quente = _ler_temperatura(
+            f"quente_equipamento_{termometro.id}", f'quente de "{termometro.rotulo()}"', erros
+        )
+        fria = _ler_temperatura(
+            f"fria_equipamento_{termometro.id}", f'fria de "{termometro.rotulo()}"', erros
+        )
+        if quente is not None and fria is not None:
+            leituras_equipamento.append((termometro, quente, fria))
 
     if erros:
         for erro in erros:
             flash(erro, "danger")
         return redirect(url_for("afericao_termometro.index"))
 
+    registro = RegistroAfericaoTermometro(
+        data=data_checagem,
+        temp_quente_padrao=temp_quente_padrao,
+        temp_fria_padrao=temp_fria_padrao,
+        responsavel=responsavel,
+    )
+    db.session.add(registro)
+    db.session.flush()  # garante registro.id antes de criar as leituras filhas
+
     total_nc = 0
     nomes_nc = []
-    for termometro, valores in leituras:
-        status = status_para_leituras(
-            valores["quente_padrao"], valores["quente_equipamento"],
-            valores["fria_padrao"], valores["fria_equipamento"],
-        )
+    for termometro, quente_equip, fria_equip in leituras_equipamento:
+        status = status_para_leituras(temp_quente_padrao, quente_equip, temp_fria_padrao, fria_equip)
         if status == "NC":
             total_nc += 1
             nomes_nc.append(termometro.rotulo())
         db.session.add(
-            RegistroAfericaoTermometro(
+            LeituraTermometroEquipamento(
+                registro_id=registro.id,
                 termometro_id=termometro.id,
-                data=data_checagem,
-                temp_quente_padrao=valores["quente_padrao"],
-                temp_quente_equipamento=valores["quente_equipamento"],
-                temp_fria_padrao=valores["fria_padrao"],
-                temp_fria_equipamento=valores["fria_equipamento"],
+                temp_quente_equipamento=quente_equip,
+                temp_fria_equipamento=fria_equip,
                 status=status,
-                responsavel=responsavel,
             )
         )
     db.session.commit()
@@ -122,7 +131,7 @@ def registrar():
 
     if total_nc == 0:
         flash(
-            f"✅ Aferição salva! Todos os {len(leituras)} termômetros conformes.",
+            f"✅ Aferição salva! Todos os {len(leituras_equipamento)} termômetros conformes.",
             "success",
         )
     else:

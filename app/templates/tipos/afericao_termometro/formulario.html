@@ -19,64 +19,68 @@
         <div class="form-text">Pode ser uma data anterior à de hoje.</div>
       </div>
 
-      <h2 class="titulo-secao">2. Aferição de cada termômetro</h2>
-      <p class="text-muted small mb-3">
-        Compare cada equipamento contra o termômetro padrão de referência
-        (<strong>{{ termometro_padrao_codigo }}</strong>), nas condições quente e fria.
-        C/NC é calculado automaticamente (variação aceitável: ±1°C em cada leitura).
-        As 4 leituras de cada termômetro são obrigatórias.
-      </p>
+      <h2 class="titulo-secao">2. Temperatura quente do padrão ({{ termometro_padrao_codigo }})</h2>
+      <p class="text-muted small mb-2">Uma única leitura — vale para todos os equipamentos desta sessão.</p>
+      <div class="mb-4">
+        <input
+          type="number" step="0.1" inputmode="decimal"
+          name="quente_padrao"
+          id="quente_padrao"
+          class="form-control form-control-lg text-center"
+          placeholder="Temperatura quente do padrão (°C)">
+      </div>
 
+      <h2 class="titulo-secao">3. Temperatura quente de cada equipamento</h2>
       {% for termometro in termometros %}
       <div class="item-pso mb-3">
         <div class="item-pso-nome">{{ termometro.codigo }} <span class="text-muted small">({{ termometro.descricao }})</span></div>
-        <div class="row g-2 mb-2">
-          <div class="col-6">
-            <label class="form-label small mb-1" for="quente_padrao_{{ termometro.id }}">Quente — Padrão (°C)</label>
-            <input
-              type="number" step="0.1" inputmode="decimal"
-              name="quente_padrao_{{ termometro.id }}"
-              id="quente_padrao_{{ termometro.id }}"
-              class="form-control text-center campo-leitura-termometro"
-              data-termometro="{{ termometro.id }}">
-          </div>
-          <div class="col-6">
-            <label class="form-label small mb-1" for="quente_equipamento_{{ termometro.id }}">Quente — Equipamento (°C)</label>
-            <input
-              type="number" step="0.1" inputmode="decimal"
-              name="quente_equipamento_{{ termometro.id }}"
-              id="quente_equipamento_{{ termometro.id }}"
-              class="form-control text-center campo-leitura-termometro"
-              data-termometro="{{ termometro.id }}">
-          </div>
-        </div>
-        <div class="row g-2 align-items-end">
-          <div class="col-6">
-            <label class="form-label small mb-1" for="fria_padrao_{{ termometro.id }}">Fria — Padrão (°C)</label>
-            <input
-              type="number" step="0.1" inputmode="decimal"
-              name="fria_padrao_{{ termometro.id }}"
-              id="fria_padrao_{{ termometro.id }}"
-              class="form-control text-center campo-leitura-termometro"
-              data-termometro="{{ termometro.id }}">
-          </div>
-          <div class="col-6">
-            <label class="form-label small mb-1" for="fria_equipamento_{{ termometro.id }}">Fria — Equipamento (°C)</label>
+        <input
+          type="number" step="0.1" inputmode="decimal"
+          name="quente_equipamento_{{ termometro.id }}"
+          id="quente_equipamento_{{ termometro.id }}"
+          class="form-control text-center campo-leitura-termometro"
+          data-termometro="{{ termometro.id }}"
+          placeholder="Temperatura quente do equipamento (°C)">
+      </div>
+      {% endfor %}
+
+      <h2 class="titulo-secao">4. Temperatura fria do padrão ({{ termometro_padrao_codigo }})</h2>
+      <p class="text-muted small mb-2">De novo, uma única leitura — vale para todos os equipamentos desta sessão.</p>
+      <div class="mb-4">
+        <input
+          type="number" step="0.1" inputmode="decimal"
+          name="fria_padrao"
+          id="fria_padrao"
+          class="form-control form-control-lg text-center"
+          placeholder="Temperatura fria do padrão (°C)">
+      </div>
+
+      <h2 class="titulo-secao">5. Temperatura fria de cada equipamento</h2>
+      <p class="text-muted small mb-3">
+        C/NC aparece automaticamente assim que os dois valores (quente e fria) do equipamento estiverem preenchidos.
+        Variação aceitável: ±1°C em cada leitura, contra o padrão.
+      </p>
+      {% for termometro in termometros %}
+      <div class="item-pso mb-3">
+        <div class="item-pso-nome">{{ termometro.codigo }} <span class="text-muted small">({{ termometro.descricao }})</span></div>
+        <div class="row g-2 align-items-center">
+          <div class="col-7">
             <input
               type="number" step="0.1" inputmode="decimal"
               name="fria_equipamento_{{ termometro.id }}"
               id="fria_equipamento_{{ termometro.id }}"
               class="form-control text-center campo-leitura-termometro"
-              data-termometro="{{ termometro.id }}">
+              data-termometro="{{ termometro.id }}"
+              placeholder="Temperatura fria do equipamento (°C)">
           </div>
-        </div>
-        <div class="text-center mt-2">
-          <span class="badge status-leitura-badge" id="status_{{ termometro.id }}">—</span>
+          <div class="col-5 text-center">
+            <span class="badge status-leitura-badge" id="status_{{ termometro.id }}">—</span>
+          </div>
         </div>
       </div>
       {% endfor %}
 
-      <h2 class="titulo-secao">3. Responsável</h2>
+      <h2 class="titulo-secao">6. Responsável</h2>
       <div class="mb-4">
         <input
           type="text"
@@ -113,55 +117,67 @@
     });
   })();
 
-  // Conforme/NC calculado ao vivo assim que as 4 leituras de um
-  // termômetro estiverem preenchidas — mesma regra do backend
-  // (status_para_leituras, em app/tipos/afericao_termometro/models.py):
-  // C só se as duas diferenças (quente e fria) ficarem <= 1°C.
+  // Conforme/NC calculado ao vivo por equipamento, assim que as
+  // leituras quente e fria do padrão (únicas, uma pra sessão
+  // inteira) e as duas leituras daquele equipamento estiverem
+  // preenchidas — mesma regra do backend (status_para_leituras, em
+  // app/tipos/afericao_termometro/models.py): C só se as duas
+  // diferenças (quente e fria) ficarem <= 1°C.
   (function () {
     const DIFERENCA_MAXIMA = 1.0;
 
-    const idsTermometro = new Set(
-      Array.from(document.querySelectorAll(".campo-leitura-termometro")).map((c) => c.dataset.termometro)
-    );
+    const campoQuentePadrao = document.getElementById("quente_padrao");
+    const campoFriaPadrao = document.getElementById("fria_padrao");
+
+    const idsTermometro = [
+      ...new Set(
+        Array.from(document.querySelectorAll(".campo-leitura-termometro")).map((c) => c.dataset.termometro)
+      ),
+    ];
+
+    function numero(campo) {
+      const valor = campo.value.replace(",", ".").trim();
+      return valor === "" ? null : parseFloat(valor);
+    }
+
+    function atualizarBadge(id) {
+      const badge = document.getElementById("status_" + id);
+      const campoQuenteEquip = document.getElementById("quente_equipamento_" + id);
+      const campoFriaEquip = document.getElementById("fria_equipamento_" + id);
+
+      const quentePadrao = numero(campoQuentePadrao);
+      const friaPadrao = numero(campoFriaPadrao);
+      const quenteEquip = numero(campoQuenteEquip);
+      const friaEquip = numero(campoFriaEquip);
+
+      if ([quentePadrao, friaPadrao, quenteEquip, friaEquip].some((v) => v === null || isNaN(v))) {
+        badge.textContent = "—";
+        badge.className = "badge status-leitura-badge";
+        return;
+      }
+
+      const diferencaQuente = Math.abs(quentePadrao - quenteEquip);
+      const diferencaFria = Math.abs(friaPadrao - friaEquip);
+      const conforme = diferencaQuente <= DIFERENCA_MAXIMA && diferencaFria <= DIFERENCA_MAXIMA;
+      badge.textContent = conforme ? "✅ Conforme" : "⚠️ NC";
+      badge.className = "badge status-leitura-badge " + (conforme ? "badge-conforme" : "badge-fora-padrao");
+    }
+
+    function atualizarTodosBadges() {
+      idsTermometro.forEach(atualizarBadge);
+    }
+
+    // Mudar a leitura do padrão afeta os 4 equipamentos de uma vez —
+    // diferente da leitura de um equipamento, que só afeta o próprio.
+    campoQuentePadrao.addEventListener("input", atualizarTodosBadges);
+    campoFriaPadrao.addEventListener("input", atualizarTodosBadges);
 
     idsTermometro.forEach(function (id) {
-      const badge = document.getElementById("status_" + id);
-      const campos = {
-        quente_padrao: document.getElementById("quente_padrao_" + id),
-        quente_equipamento: document.getElementById("quente_equipamento_" + id),
-        fria_padrao: document.getElementById("fria_padrao_" + id),
-        fria_equipamento: document.getElementById("fria_equipamento_" + id),
-      };
-
-      function numero(campo) {
-        const valor = campo.value.replace(",", ".").trim();
-        return valor === "" ? null : parseFloat(valor);
-      }
-
-      function atualizar() {
-        const quentePadrao = numero(campos.quente_padrao);
-        const quenteEquip = numero(campos.quente_equipamento);
-        const friaPadrao = numero(campos.fria_padrao);
-        const friaEquip = numero(campos.fria_equipamento);
-
-        if ([quentePadrao, quenteEquip, friaPadrao, friaEquip].some((v) => v === null || isNaN(v))) {
-          badge.textContent = "—";
-          badge.className = "badge status-leitura-badge";
-          return;
-        }
-
-        const diferencaQuente = Math.abs(quentePadrao - quenteEquip);
-        const diferencaFria = Math.abs(friaPadrao - friaEquip);
-        const conforme = diferencaQuente <= DIFERENCA_MAXIMA && diferencaFria <= DIFERENCA_MAXIMA;
-        badge.textContent = conforme ? "✅ Conforme" : "⚠️ NC";
-        badge.className = "badge status-leitura-badge " + (conforme ? "badge-conforme" : "badge-fora-padrao");
-      }
-
-      Object.values(campos).forEach(function (campo) {
-        campo.addEventListener("input", atualizar);
-      });
-      atualizar();
+      document.getElementById("quente_equipamento_" + id).addEventListener("input", () => atualizarBadge(id));
+      document.getElementById("fria_equipamento_" + id).addEventListener("input", () => atualizarBadge(id));
     });
+
+    atualizarTodosBadges();
   })();
 </script>
 {% endblock %}

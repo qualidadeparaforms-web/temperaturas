@@ -314,12 +314,32 @@ leitura, não escolhido pelo usuário como nos outros checklists (PAC
 
 O terceiro tipo semanal, e o segundo com tabela mestre (a exemplo do
 PAC 08-G) — o cadastro fixo dos 4 termômetros/equipamentos (tabela
-`termometros`), separado da tabela de leituras
-(`registros_afericao_termometro`). Cada aferição compara um
-equipamento contra um **termômetro padrão de referência** (código
-`AK240607938`, fixo em `TERMOMETRO_PADRAO_CODIGO` — não é um
-equipamento cadastrado, só um valor de contexto mostrado na tela) em
-duas condições: quente e fria.
+`termometros`). Cada aferição compara um equipamento contra um
+**termômetro padrão de referência** (código `AK240607938`, fixo em
+`TERMOMETRO_PADRAO_CODIGO` — não é um equipamento cadastrado, só um
+valor de contexto mostrado na tela) em duas condições: quente e fria.
+
+**A leitura do padrão é tomada uma única vez por sessão de
+registro**, não repetida por equipamento — por isso o esquema de
+dados é dividido em duas tabelas (mesmo padrão "sessão + itens" do
+PAC 06-D/06-E, pesagens individuais):
+
+- `registros_afericao_termometro` — uma linha por **sessão**: `data`,
+  `temp_quente_padrao`, `temp_fria_padrao` (as duas leituras do
+  padrão, tomadas uma vez) e `responsavel`.
+- `leituras_termometro_equipamento` — uma linha por **equipamento
+  aferido** dentro da sessão: `registro_id` (FK pra sessão),
+  `termometro_id`, `temp_quente_equipamento`, `temp_fria_equipamento`
+  e `status` (calculado). As leituras do padrão não se repetem aqui —
+  ficam só na sessão, acessadas via `self.registro` (relationship).
+
+Fluxo da tela de registro, nessa ordem: (1) data, (2) temperatura
+quente do padrão — campo único, (3) temperatura quente de cada um
+dos 4 equipamentos, (4) temperatura fria do padrão — campo único de
+novo, (5) temperatura fria de cada equipamento (com o status C/NC
+aparecendo ao lado assim que as 4 temperaturas relevantes daquele
+equipamento — 2 do padrão + 2 dele — estiverem preenchidas), (6)
+responsável.
 
 - **Duas diferenças, não uma**: `diferenca_quente = abs(quente_padrão
   - quente_equipamento)` e `diferenca_fria = abs(fria_padrão -
@@ -327,25 +347,37 @@ duas condições: quente e fria.
   variação aceitável (`DIFERENCA_MAXIMA_C = 1.0`, ±1°C, fixa para
   todos os equipamentos); **NC se qualquer uma das duas** ultrapassar
   — `status_para_leituras()`, em
-  `app/tipos/afericao_termometro/models.py`. Igual ao PAC 08-G, o
-  status nunca é escolhido pelo usuário, sempre calculado — no
-  backend ao salvar, e reimplementado em JS no formulário pra dar
-  feedback ao vivo sem precisar salvar pra saber.
-- **As 4 leituras dos 4 equipamentos são todas obrigatórias**,
-  diferente do PAC 08-G (que aceita preenchimento parcial): um envio
-  só salva se todo mundo tiver as 4 temperaturas preenchidas — "tudo
-  ou nada", porque a aferição descreve uma única sessão de calibração
-  completa, não visitas independentes por equipamento.
+  `app/tipos/afericao_termometro/models.py`. Nunca escolhido pelo
+  usuário, sempre calculado — no backend ao salvar, e reimplementado
+  em JS no formulário pra dar feedback ao vivo sem precisar salvar
+  pra saber (mudar a leitura do padrão recalcula o status dos 4
+  equipamentos de uma vez, já que ela é compartilhada).
+- **As 4 leituras dos 4 equipamentos + as 2 leituras do padrão são
+  todas obrigatórias**, diferente do PAC 08-G (que aceita
+  preenchimento parcial): um envio só salva se tudo estiver
+  preenchido — "tudo ou nada", porque a aferição descreve uma única
+  sessão de calibração completa, não visitas independentes por
+  equipamento. `db.session.flush()` é usado depois de criar a sessão
+  (pra garantir o `id` antes de criar as leituras filhas) — tudo
+  dentro do mesmo commit, então uma falha no meio não deixa sessão
+  órfã sem leituras.
 - Aceita ponto ou vírgula decimal, igual aos outros tipos com campos
-  numéricos livres.
-- O painel (`/dashboard/afericao_termometro`) filtra por termômetro
-  específico (só 4 opções, sem precisar de agrupamento) e mostra NCs
-  ao longo do tempo.
+  numéricos livres (inclusive nas leituras do padrão).
+- O painel (`/dashboard/afericao_termometro`) continua mostrando uma
+  linha por equipamento aferido (a "unidade" que interessa pro
+  filtro e pro gráfico), agora buscada com um `JOIN` entre as duas
+  tabelas — filtra por termômetro específico (só 4 opções, sem
+  precisar de agrupamento) e mostra NCs ao longo do tempo.
 - **Exportação em Excel não é uma matriz** (diferente do PAC 08-E e
-  do PAC 08-G) — é uma linha por aferição, replicando o formato
-  original da planilha: Dia, Nº Equipamento, Equipamento, as 4
-  leituras de temperatura, Variação Aceitável, C/NC, Responsável.
-  Linhas NC destacadas em vermelho.
+  do PAC 08-G) — é uma linha por leitura de equipamento, replicando o
+  formato original da planilha: Dia, Nº Equipamento, Equipamento, as
+  4 leituras de temperatura (as 2 do padrão vêm da sessão e se
+  repetem em cada linha de equipamento daquela sessão), Variação
+  Aceitável, C/NC, Responsável. Linhas NC destacadas em vermelho.
+- `colunas_backup` do `TipoRegistro` cobre só a tabela da sessão
+  (igual ao PAC 06-D/06-E: a tabela de itens/leituras fica de fora do
+  CSV automático por tipo — o backup binário `.db` sempre inclui
+  tudo, sem exceção).
 - Modelo de dados e regras em `app/tipos/afericao_termometro/models.py`.
 
 ## Estrutura do projeto
@@ -876,15 +908,18 @@ command `pip install -r requirements.txt` e Start command
     (não pra `/inicio`), mesmo padrão dos tipos diários voltando pra
     `/diarias`.
 17. **Registro de aferição dos termômetros** (`/afericao_termometro`)
-    — o terceiro tipo semanal: campo de data, e os 4
-    termômetros/equipamentos cadastrados, cada um com 4 campos
-    numéricos (temperatura quente do padrão, quente do equipamento,
-    fria do padrão, fria do equipamento) — o status conforme/NC
-    aparece logo abaixo de cada termômetro, calculado ao vivo
-    conforme os 4 campos são preenchidos. Diferente do PAC 08-G, as 4
-    leituras de todos os 4 termômetros são obrigatórias — "tudo ou
-    nada" num único envio. "← Escolher outro tipo de registro"
-    também volta pra `/semanais`.
+    — o terceiro tipo semanal, em 6 passos: (1) data; (2) temperatura
+    quente do **padrão** (`AK240607938`) — campo único, uma leitura
+    só pra sessão inteira; (3) temperatura quente de cada um dos 4
+    equipamentos; (4) temperatura fria do padrão — campo único de
+    novo; (5) temperatura fria de cada equipamento, com o status
+    conforme/NC aparecendo ao lado assim que as leituras relevantes
+    daquele equipamento (as 2 do padrão + as 2 dele) estiverem
+    preenchidas; (6) responsável. Mudar a leitura do padrão recalcula
+    o status dos 4 equipamentos de uma vez, já que ela é
+    compartilhada. As 4 leituras dos 4 equipamentos + as 2 do padrão
+    são todas obrigatórias — "tudo ou nada" num único envio. "←
+    Escolher outro tipo de registro" também volta pra `/semanais`.
 18. **Registro de aferição das balanças** (`/afericao_balanca`) — o
     segundo tipo semanal: campo de data, e as 20 balanças cadastradas
     (organizadas em grupos por setor, mesmo padrão visual do PAC

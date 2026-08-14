@@ -43,6 +43,9 @@ def _nome_amigavel_tabela(nome_tabela: str) -> str:
         "pesagens_individuais": "Pesagens individuais (PAC 06-D)",
         "pesagens_individuais_gramatura": "Pesagens individuais (PAC 06-E)",
         "verificacoes_rt": "Verificações RT (PAC 17)",
+        "balancas": "Cadastro de balanças (PAC 08-G)",
+        "termometros": "Cadastro de termômetros (PAC 08-F)",
+        "leituras_termometro_equipamento": "Leituras por equipamento (PAC 08-F)",
     }
     return nomes_extras.get(nome_tabela, nome_tabela)
 

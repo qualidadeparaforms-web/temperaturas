@@ -8,6 +8,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from app.timezone_utils import agora_brasilia
 from app.tipos.afericao_termometro.models import (
     DIFERENCA_MAXIMA_C,
+    LeituraTermometroEquipamento,
     RegistroAfericaoTermometro,
     Termometro,
 )
@@ -38,17 +39,28 @@ def periodo_para_datas(periodo: str, data_inicio: str | None = None, data_fim: s
     return hoje - timedelta(days=6), hoje
 
 
-def buscar_registros(periodo: str, termometro: str, data_inicio: str | None = None, data_fim: str | None = None):
-    inicio, fim = periodo_para_datas(periodo, data_inicio, data_fim)
-    query = RegistroAfericaoTermometro.query.filter(
+def _query_leituras_no_periodo(inicio: date, fim: date):
+    """As leituras por equipamento (LeituraTermometroEquipamento) são
+    a unidade "visível" do painel — igual a antes desta reformulação,
+    quando cada linha já era um par (termômetro, sessão). Agora que a
+    leitura do padrão vive na sessão (RegistroAfericaoTermometro), o
+    filtro de data precisa de um join."""
+    return LeituraTermometroEquipamento.query.join(RegistroAfericaoTermometro).filter(
         RegistroAfericaoTermometro.data >= inicio, RegistroAfericaoTermometro.data <= fim
     )
+
+
+def buscar_registros(periodo: str, termometro: str, data_inicio: str | None = None, data_fim: str | None = None):
+    inicio, fim = periodo_para_datas(periodo, data_inicio, data_fim)
+    query = _query_leituras_no_periodo(inicio, fim)
     if termometro and termometro != "todos":
         try:
-            query = query.filter(RegistroAfericaoTermometro.termometro_id == int(termometro))
+            query = query.filter(LeituraTermometroEquipamento.termometro_id == int(termometro))
         except ValueError:
             pass
-    registros = query.order_by(RegistroAfericaoTermometro.data.asc(), RegistroAfericaoTermometro.id.asc()).all()
+    registros = query.order_by(
+        RegistroAfericaoTermometro.data.asc(), LeituraTermometroEquipamento.id.asc()
+    ).all()
     return registros, inicio, fim
 
 
@@ -101,16 +113,15 @@ def api_registros():
 
 def adicionar_planilha(wb: Workbook, inicio: date, fim: date, filtros_extra: dict | None = None) -> None:
     """Acrescenta ao workbook uma aba no formato da planilha original:
-    uma linha por aferição (não uma matriz pivotada como PAC 08-E/G) —
-    data, nº do equipamento, equipamento, as 4 leituras de
-    temperatura, variação aceitável e C/NC, responsável. Ignora o
-    filtro "termometro" do painel de propósito — a exportação sempre
-    mostra todas as aferições do período."""
+    uma linha por leitura de equipamento (não uma matriz pivotada como
+    PAC 08-E/G) — data, nº do equipamento, equipamento, as 4 leituras
+    de temperatura (as 2 do padrão vêm da sessão e se repetem em cada
+    linha de equipamento daquela sessão), variação aceitável e C/NC,
+    responsável. Ignora o filtro "termometro" do painel de propósito —
+    a exportação sempre mostra todas as leituras do período."""
     registros = (
-        RegistroAfericaoTermometro.query.filter(
-            RegistroAfericaoTermometro.data >= inicio, RegistroAfericaoTermometro.data <= fim
-        )
-        .order_by(RegistroAfericaoTermometro.data.asc(), RegistroAfericaoTermometro.id.asc())
+        _query_leituras_no_periodo(inicio, fim)
+        .order_by(RegistroAfericaoTermometro.data.asc(), LeituraTermometroEquipamento.id.asc())
         .all()
     )
 
@@ -139,18 +150,19 @@ def adicionar_planilha(wb: Workbook, inicio: date, fim: date, filtros_extra: dic
 
     for registro in registros:
         termometro = registro.termometro
+        sessao = registro.registro
         ws.append(
             [
-                registro.data.strftime("%d/%m/%Y"),
+                sessao.data.strftime("%d/%m/%Y"),
                 termometro.codigo if termometro else "",
                 termometro.descricao if termometro else "",
-                registro.temp_quente_padrao,
+                sessao.temp_quente_padrao,
                 registro.temp_quente_equipamento,
-                registro.temp_fria_padrao,
+                sessao.temp_fria_padrao,
                 registro.temp_fria_equipamento,
                 f"±{DIFERENCA_MAXIMA_C:g}",
                 registro.status,
-                registro.responsavel,
+                sessao.responsavel,
             ]
         )
         if not registro.conforme:
@@ -188,30 +200,26 @@ def exportar():
 
 
 def contar(inicio: date, fim: date) -> int:
-    return RegistroAfericaoTermometro.query.filter(
-        RegistroAfericaoTermometro.data >= inicio, RegistroAfericaoTermometro.data <= fim
-    ).count()
+    return _query_leituras_no_periodo(inicio, fim).count()
 
 
 def linhas_combinadas(inicio: date, fim: date) -> list:
     registros = (
-        RegistroAfericaoTermometro.query.filter(
-            RegistroAfericaoTermometro.data >= inicio, RegistroAfericaoTermometro.data <= fim
-        )
-        .order_by(RegistroAfericaoTermometro.data.asc(), RegistroAfericaoTermometro.id.asc())
+        _query_leituras_no_periodo(inicio, fim)
+        .order_by(RegistroAfericaoTermometro.data.asc(), LeituraTermometroEquipamento.id.asc())
         .all()
     )
     return [
         {
             "tipo": "PAC 08-F - Aferição dos Termômetros",
             "icone": "🎯",
-            "data": r.data.strftime("%d/%m/%Y"),
+            "data": r.registro.data.strftime("%d/%m/%Y"),
             "horario": "",
             "resumo": f"{r.termometro.rotulo() if r.termometro else '?'}: "
             f"diferença {max(r.diferenca_quente, r.diferenca_fria):.1f}°C "
             f"({'Conforme' if r.status == 'C' else '⚠️ NC'})",
             "conforme": r.conforme,
-            "ordenacao": datetime.combine(r.data, time.min),
+            "ordenacao": datetime.combine(r.registro.data, time.min),
         }
         for r in registros
     ]
