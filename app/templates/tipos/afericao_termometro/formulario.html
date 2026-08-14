@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block titulo %}Registrar Aferição dos Termômetros{% endblock %}
+
+{% block conteudo %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <a href="{{ url_for('home.semanais') }}" class="link-voltar">← Escolher outro tipo de registro</a>
+    <form method="post" action="{{ url_for('afericao_termometro.registrar') }}" id="formAfericaoTermometro" autocomplete="off">
+
+      <h2 class="titulo-secao">1. Data da checagem</h2>
+      <div class="mb-4">
+        <input
+          type="date"
+          name="data"
+          id="campoData"
+          class="form-control form-control-lg text-center"
+          value="{{ data_hoje }}"
+          required>
+        <div class="form-text">Pode ser uma data anterior à de hoje.</div>
+      </div>
+
+      <h2 class="titulo-secao">2. Aferição de cada termômetro</h2>
+      <p class="text-muted small mb-3">
+        Compare cada equipamento contra o termômetro padrão de referência
+        (<strong>{{ termometro_padrao_codigo }}</strong>), nas condições quente e fria.
+        C/NC é calculado automaticamente (variação aceitável: ±1°C em cada leitura).
+        As 4 leituras de cada termômetro são obrigatórias.
+      </p>
+
+      {% for termometro in termometros %}
+      <div class="item-pso mb-3">
+        <div class="item-pso-nome">{{ termometro.codigo }} <span class="text-muted small">({{ termometro.descricao }})</span></div>
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="form-label small mb-1" for="quente_padrao_{{ termometro.id }}">Quente — Padrão (°C)</label>
+            <input
+              type="number" step="0.1" inputmode="decimal"
+              name="quente_padrao_{{ termometro.id }}"
+              id="quente_padrao_{{ termometro.id }}"
+              class="form-control text-center campo-leitura-termometro"
+              data-termometro="{{ termometro.id }}">
+          </div>
+          <div class="col-6">
+            <label class="form-label small mb-1" for="quente_equipamento_{{ termometro.id }}">Quente — Equipamento (°C)</label>
+            <input
+              type="number" step="0.1" inputmode="decimal"
+              name="quente_equipamento_{{ termometro.id }}"
+              id="quente_equipamento_{{ termometro.id }}"
+              class="form-control text-center campo-leitura-termometro"
+              data-termometro="{{ termometro.id }}">
+          </div>
+        </div>
+        <div class="row g-2 align-items-end">
+          <div class="col-6">
+            <label class="form-label small mb-1" for="fria_padrao_{{ termometro.id }}">Fria — Padrão (°C)</label>
+            <input
+              type="number" step="0.1" inputmode="decimal"
+              name="fria_padrao_{{ termometro.id }}"
+              id="fria_padrao_{{ termometro.id }}"
+              class="form-control text-center campo-leitura-termometro"
+              data-termometro="{{ termometro.id }}">
+          </div>
+          <div class="col-6">
+            <label class="form-label small mb-1" for="fria_equipamento_{{ termometro.id }}">Fria — Equipamento (°C)</label>
+            <input
+              type="number" step="0.1" inputmode="decimal"
+              name="fria_equipamento_{{ termometro.id }}"
+              id="fria_equipamento_{{ termometro.id }}"
+              class="form-control text-center campo-leitura-termometro"
+              data-termometro="{{ termometro.id }}">
+          </div>
+        </div>
+        <div class="text-center mt-2">
+          <span class="badge status-leitura-badge" id="status_{{ termometro.id }}">—</span>
+        </div>
+      </div>
+      {% endfor %}
+
+      <h2 class="titulo-secao">3. Responsável</h2>
+      <div class="mb-4">
+        <input
+          type="text"
+          name="responsavel"
+          id="campoResponsavel"
+          class="form-control form-control-lg"
+          placeholder="Nome de quem está registrando"
+          list="listaResponsaveisAfericaoTermometro"
+          required>
+        <datalist id="listaResponsaveisAfericaoTermometro">
+          {% for nome in responsaveis %}
+          <option value="{{ nome }}">
+          {% endfor %}
+        </datalist>
+      </div>
+
+      <button type="submit" class="btn btn-salvar w-100">💾 SALVAR AFERIÇÃO</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+  (function () {
+    const campoResponsavel = document.getElementById("campoResponsavel");
+    const salvo = localStorage.getItem("ultimoResponsavelAfericaoTermometro");
+    if (salvo) {
+      campoResponsavel.value = salvo;
+    }
+
+    document.getElementById("formAfericaoTermometro").addEventListener("submit", function () {
+      localStorage.setItem("ultimoResponsavelAfericaoTermometro", campoResponsavel.value);
+    });
+  })();
+
+  // Conforme/NC calculado ao vivo assim que as 4 leituras de um
+  // termômetro estiverem preenchidas — mesma regra do backend
+  // (status_para_leituras, em app/tipos/afericao_termometro/models.py):
+  // C só se as duas diferenças (quente e fria) ficarem <= 1°C.
+  (function () {
+    const DIFERENCA_MAXIMA = 1.0;
+
+    const idsTermometro = new Set(
+      Array.from(document.querySelectorAll(".campo-leitura-termometro")).map((c) => c.dataset.termometro)
+    );
+
+    idsTermometro.forEach(function (id) {
+      const badge = document.getElementById("status_" + id);
+      const campos = {
+        quente_padrao: document.getElementById("quente_padrao_" + id),
+        quente_equipamento: document.getElementById("quente_equipamento_" + id),
+        fria_padrao: document.getElementById("fria_padrao_" + id),
+        fria_equipamento: document.getElementById("fria_equipamento_" + id),
+      };
+
+      function numero(campo) {
+        const valor = campo.value.replace(",", ".").trim();
+        return valor === "" ? null : parseFloat(valor);
+      }
+
+      function atualizar() {
+        const quentePadrao = numero(campos.quente_padrao);
+        const quenteEquip = numero(campos.quente_equipamento);
+        const friaPadrao = numero(campos.fria_padrao);
+        const friaEquip = numero(campos.fria_equipamento);
+
+        if ([quentePadrao, quenteEquip, friaPadrao, friaEquip].some((v) => v === null || isNaN(v))) {
+          badge.textContent = "—";
+          badge.className = "badge status-leitura-badge";
+          return;
+        }
+
+        const diferencaQuente = Math.abs(quentePadrao - quenteEquip);
+        const diferencaFria = Math.abs(friaPadrao - friaEquip);
+        const conforme = diferencaQuente <= DIFERENCA_MAXIMA && diferencaFria <= DIFERENCA_MAXIMA;
+        badge.textContent = conforme ? "✅ Conforme" : "⚠️ NC";
+        badge.className = "badge status-leitura-badge " + (conforme ? "badge-conforme" : "badge-fora-padrao");
+      }
+
+      Object.values(campos).forEach(function (campo) {
+        campo.addEventListener("input", atualizar);
+      });
+      atualizar();
+    });
+  })();
+</script>
+{% endblock %}

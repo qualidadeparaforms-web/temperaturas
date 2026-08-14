@@ -310,6 +310,44 @@ leitura, não escolhido pelo usuário como nos outros checklists (PAC
   destacado em vermelho.
 - Modelo de dados e regras em `app/tipos/afericao_balanca/models.py`.
 
+## Regras de negócio — PAC 08-F - Aferição dos Termômetros
+
+O terceiro tipo semanal, e o segundo com tabela mestre (a exemplo do
+PAC 08-G) — o cadastro fixo dos 4 termômetros/equipamentos (tabela
+`termometros`), separado da tabela de leituras
+(`registros_afericao_termometro`). Cada aferição compara um
+equipamento contra um **termômetro padrão de referência** (código
+`AK240607938`, fixo em `TERMOMETRO_PADRAO_CODIGO` — não é um
+equipamento cadastrado, só um valor de contexto mostrado na tela) em
+duas condições: quente e fria.
+
+- **Duas diferenças, não uma**: `diferenca_quente = abs(quente_padrão
+  - quente_equipamento)` e `diferenca_fria = abs(fria_padrão -
+  fria_equipamento)`. Status **C só se as duas** ficarem dentro da
+  variação aceitável (`DIFERENCA_MAXIMA_C = 1.0`, ±1°C, fixa para
+  todos os equipamentos); **NC se qualquer uma das duas** ultrapassar
+  — `status_para_leituras()`, em
+  `app/tipos/afericao_termometro/models.py`. Igual ao PAC 08-G, o
+  status nunca é escolhido pelo usuário, sempre calculado — no
+  backend ao salvar, e reimplementado em JS no formulário pra dar
+  feedback ao vivo sem precisar salvar pra saber.
+- **As 4 leituras dos 4 equipamentos são todas obrigatórias**,
+  diferente do PAC 08-G (que aceita preenchimento parcial): um envio
+  só salva se todo mundo tiver as 4 temperaturas preenchidas — "tudo
+  ou nada", porque a aferição descreve uma única sessão de calibração
+  completa, não visitas independentes por equipamento.
+- Aceita ponto ou vírgula decimal, igual aos outros tipos com campos
+  numéricos livres.
+- O painel (`/dashboard/afericao_termometro`) filtra por termômetro
+  específico (só 4 opções, sem precisar de agrupamento) e mostra NCs
+  ao longo do tempo.
+- **Exportação em Excel não é uma matriz** (diferente do PAC 08-E e
+  do PAC 08-G) — é uma linha por aferição, replicando o formato
+  original da planilha: Dia, Nº Equipamento, Equipamento, as 4
+  leituras de temperatura, Variação Aceitável, C/NC, Responsável.
+  Linhas NC destacadas em vermelho.
+- Modelo de dados e regras em `app/tipos/afericao_termometro/models.py`.
+
 ## Estrutura do projeto
 
 ```
@@ -425,14 +463,16 @@ e cada um leva pra grade de tipos daquela frequência (`/diarias`,
 `/semanais`, `/mensais`, todas renderizadas pelo mesmo template
 `home_tipos.html`, filtrando `TIPOS_REGISTRO` pelo campo `categoria`
 de cada um via `tipos_por_categoria()`). Os 9 tipos originais são
-diários; PAC 08-E (Monitoramento da Ventilação) e PAC 08-G (Aferição
-das Balanças) são semanais — cada um só precisou de
-`categoria="semanal"` no seu `TipoRegistro(...)`, sem tocar em
-`app/routes/home.py` nem nos templates, e `/semanais` já mostra os
-dois lado a lado (ver `app/tipos/ventilacao/__init__.py` e
-`app/tipos/afericao_balanca/__init__.py` como referência de ponta a
-ponta pra um tipo não-diário — o segundo também mostra como plugar
-`seed` pra um tipo com tabela mestre). `/mensais` ainda não tem
+diários; PAC 08-E (Monitoramento da Ventilação), PAC 08-G (Aferição
+das Balanças) e PAC 08-F (Aferição dos Termômetros) são semanais —
+cada um só precisou de `categoria="semanal"` no seu
+`TipoRegistro(...)`, sem tocar em `app/routes/home.py` nem nos
+templates, e `/semanais` já mostra os três lado a lado (ver
+`app/tipos/ventilacao/__init__.py`, `app/tipos/afericao_balanca/__init__.py`
+e `app/tipos/afericao_termometro/__init__.py` como referência de
+ponta a ponta pra um tipo não-diário — os dois últimos também mostram
+como plugar `seed` pra um tipo com tabela mestre, inclusive um
+segundo caso de tabela mestre pra comparar). `/mensais` ainda não tem
 nenhum tipo, então mostra "nenhum registro cadastrado ainda" — o
 próximo tipo com `categoria="mensal"` aparece lá do mesmo jeito. O painel
 (`/dashboard`) e a exportação continuam ignorando a categoria —
@@ -751,9 +791,10 @@ command `pip install -r requirements.txt` e Start command
    clicar, leva ao formulário daquele tipo; "← Voltar" retorna pra
    `/inicio`.
 4. **Semanais** (`/semanais`) — mesma tela de grade de "Diárias", já
-   com os 2 tipos semanais cadastrados: "🌬️ PAC 08-E - Monitoramento
-   da Ventilação" (item 16 abaixo) e "⚙️ PAC 08-G - Aferição das
-   Balanças" (item 17 abaixo). Um tipo semanal novo aparece aqui do
+   com os 3 tipos semanais cadastrados: "🌬️ PAC 08-E - Monitoramento
+   da Ventilação" (item 16 abaixo), "🎯 PAC 08-F - Aferição dos
+   Termômetros" (item 17 abaixo) e "⚙️ PAC 08-G - Aferição das
+   Balanças" (item 18 abaixo). Um tipo semanal novo aparece aqui do
    lado, automaticamente.
 5. **Mensais** (`/mensais`) — mesma tela de grade, ainda vazia
    ("Nenhum registro mensal cadastrado ainda"): é só a estrutura
@@ -834,7 +875,17 @@ command `pip install -r requirements.txt` e Start command
     vez. "← Escolher outro tipo de registro" volta pra `/semanais`
     (não pra `/inicio`), mesmo padrão dos tipos diários voltando pra
     `/diarias`.
-17. **Registro de aferição das balanças** (`/afericao_balanca`) — o
+17. **Registro de aferição dos termômetros** (`/afericao_termometro`)
+    — o terceiro tipo semanal: campo de data, e os 4
+    termômetros/equipamentos cadastrados, cada um com 4 campos
+    numéricos (temperatura quente do padrão, quente do equipamento,
+    fria do padrão, fria do equipamento) — o status conforme/NC
+    aparece logo abaixo de cada termômetro, calculado ao vivo
+    conforme os 4 campos são preenchidos. Diferente do PAC 08-G, as 4
+    leituras de todos os 4 termômetros são obrigatórias — "tudo ou
+    nada" num único envio. "← Escolher outro tipo de registro"
+    também volta pra `/semanais`.
+18. **Registro de aferição das balanças** (`/afericao_balanca`) — o
     segundo tipo semanal: campo de data, e as 20 balanças cadastradas
     (organizadas em grupos por setor, mesmo padrão visual do PAC
     08-E), cada uma com um campo numérico pra leitura da massa de
@@ -843,7 +894,7 @@ command `pip install -r requirements.txt` e Start command
     contrário do PAC 08-E, não é preciso preencher todas as balanças
     de uma vez: só as preenchidas são salvas no envio. "← Escolher
     outro tipo de registro" também volta pra `/semanais`.
-18. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
+19. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
     direto para o painel daquele tipo; com dois ou mais (como hoje),
     mostra uma visão combinada por padrão (cartões de contagem por tipo
     + tabela unificada), com um seletor para entrar no painel completo
@@ -861,12 +912,15 @@ command `pip install -r requirements.txt` e Start command
     painel do PAC 17 segue o mesmo formato, com um filtro por
     equipamento e uma linha por equipamento no gráfico; a tela de
     Verificação RT não tem painel próprio (é só um log rápido, sem
-    conceito de conformidade). Os painéis dos 2 tipos semanais seguem
-    o mesmo formato do PAC 11: uma linha por setor (PAC 08-E) ou por
-    balança (PAC 08-G) no gráfico, com filtro pra isolar um item
-    específico — a legenda do gráfico se esconde sozinha quando mais
-    de 8 linhas aparecem juntas, pra não poluir a tela.
-19. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
+    conceito de conformidade). Os painéis do PAC 08-E e do PAC 08-G
+    seguem o mesmo formato do PAC 11: uma linha por setor (PAC 08-E)
+    ou por balança (PAC 08-G) no gráfico, com filtro pra isolar um
+    item específico — a legenda do gráfico se esconde sozinha quando
+    mais de 8 linhas aparecem juntas, pra não poluir a tela. O painel
+    do PAC 08-F segue a mesma ideia, mas com só 4 termômetros (a
+    legenda sempre fica visível) e o filtro comparando as duas
+    diferenças (quente e fria) no tooltip do gráfico.
+20. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
     colunas do tipo em questão, respeitando os filtros aplicados.
     Linhas fora do padrão vêm destacadas em vermelho na planilha. O
     monitoramento de peso e o de gramatura geram duas abas cada: um
@@ -882,13 +936,18 @@ command `pip install -r requirements.txt` e Start command
     também ignora o filtro de setor do painel. O PAC 08-G usa a mesma
     matriz agrupada por setor, mas com as 20 balanças nas linhas e
     cada célula mostrando leitura **e** status juntos (ex.: "1000.0g
-    (C)"), também ignorando o filtro de balança do painel. O PAC 17
-    também gera duas abas: "Integridade Componentes" (os registros
-    C/NC) e "Verificações RT" (o histórico de conferências rápidas,
-    sempre com todos os equipamentos, ignorando o filtro do painel).
-    Na visão combinada, "Exportar tudo" gera um único arquivo com uma
-    aba por tipo (`/exportar?tipo=todos`, duas abas para os tipos que
-    têm detalhe/verificação separados).
+    (C)"), também ignorando o filtro de balança do painel. O PAC 08-F
+    foge do formato de matriz — gera uma linha por aferição (igual à
+    Temperatura de Processo e à maioria dos outros tipos), com as
+    colunas exatas da planilha original: Dia, Nº Equipamento,
+    Equipamento, as 4 leituras de temperatura, Variação Aceitável,
+    C/NC, Responsável. O PAC 17 também gera duas abas: "Integridade
+    Componentes" (os registros C/NC) e "Verificações RT" (o histórico
+    de conferências rápidas, sempre com todos os equipamentos,
+    ignorando o filtro do painel). Na visão combinada, "Exportar
+    tudo" gera um único arquivo com uma aba por tipo
+    (`/exportar?tipo=todos`, duas abas para os tipos que têm
+    detalhe/verificação separados).
 
 ## Paleta de cores
 
