@@ -413,6 +413,35 @@ específico.
   Setor, Local, Lux Necessário, Lux Obtido, C/NC.
 - Modelo de dados e regras em `app/tipos/iluminacao/models.py`.
 
+## Regras de negócio — PAC 01-C - Limpeza Interna das Agulhas da Máquina Injetora
+
+Checklist diário simples, com 2 critérios independentes — "Agulhas
+Limpas" e "Sem Resíduos" — cada um avaliado só como C ou NC, no mesmo
+padrão de botões do PAC 11/PAC 08-E. **Conforme só se os dois
+critérios estiverem C**; qualquer um dos dois em NC já torna o
+registro inteiro não conforme.
+
+- **Dois responsáveis distintos, não um só**: `operador` (quem fez a
+  limpeza das agulhas) e `controle_qualidade` (quem registrou/validou
+  o registro no sistema) — dois campos de texto livre independentes,
+  cada um com sua própria lista de sugestões (`<datalist>`) e sua
+  própria chave de `localStorage` pra lembrar o último nome digitado.
+  Nenhum outro tipo do sistema tem essa separação — todos os demais
+  usam um único campo `responsavel`.
+- Sem campo de `horario` — igual ao PAC 11, é um checklist do dia,
+  não uma medição pontual.
+- `categoria` não foi especificada — ficou no padrão `"diaria"` (like
+  os 9 tipos originais e a maioria dos demais), então aparece em
+  `/diarias`.
+- Painel simples (`/dashboard/limpeza_agulhas_injetora`): sem filtro
+  por sub-item (não há uma lista de PSOs/setores/pontos aqui, só os 2
+  critérios fixos) — o gráfico mostra 2 linhas fixas, uma por
+  critério, cada uma C/NC ao longo do tempo.
+- **Exportação em Excel** é flat (uma linha por registro, sem
+  matriz), com as 5 colunas exatas pedidas: Data, Agulhas Limpas, Sem
+  Resíduos, Operador, Controle de Qualidade.
+- Modelo de dados e regras em `app/tipos/limpeza_agulhas_injetora/models.py`.
+
 ## Estrutura do projeto
 
 ```
@@ -852,10 +881,10 @@ command `pip install -r requirements.txt` e Start command
    Abastecimento", "🥩 PAC 04-C - Temperatura dos Produtos", "📦
    PAC 04-D - Câmaras de Expedição", "⚖️ PAC 06-D - Monitoramento de
    Peso", "📏 PAC 06-E - Monitoramento de Gramatura", "🧼 PAC 11 -
-   Monitoramento dos PSO's" e "🪡 PAC 17 - Integridade de Componentes
-   de Máquinas" — os 9 tipos existentes hoje são todos diários. Ao
-   clicar, leva ao formulário daquele tipo; "← Voltar" retorna pra
-   `/inicio`.
+   Monitoramento dos PSO's", "🪡 PAC 17 - Integridade de Componentes
+   de Máquinas" e "🧽 PAC 01-C - Limpeza Interna das Agulhas da
+   Máquina Injetora" — os 10 tipos diários de hoje. Ao clicar, leva ao
+   formulário daquele tipo; "← Voltar" retorna pra `/inicio`.
 4. **Semanais** (`/semanais`) — mesma tela de grade de "Diárias", já
    com os 3 tipos semanais cadastrados: "🌬️ PAC 08-E - Monitoramento
    da Ventilação" (item 16 abaixo), "🎯 PAC 08-F - Aferição dos
@@ -929,7 +958,13 @@ command `pip install -r requirements.txt` e Start command
     por equipamento; tocar em um já salva a data/hora e o
     equipamento, sem formulário. Mostra as verificações já feitas
     hoje logo abaixo, como confirmação visual.
-16. **Registro de monitoramento da ventilação** (`/ventilacao`) — o
+16. **Registro de limpeza das agulhas da injetora** (`/limpeza_agulhas_injetora`)
+    — campo de data, os pares "✅ C"/"⚠️ NC" de "Agulhas Limpas" e
+    "Sem Resíduos" (mesmo padrão do PAC 11), e dois campos de texto
+    separados — Operador (quem fez a limpeza) e Controle de Qualidade
+    (quem registrou) — cada um com sua própria lista de sugestões.
+    Único tipo do sistema sem um campo único de responsável.
+17. **Registro de monitoramento da ventilação** (`/ventilacao`) — o
     primeiro tipo semanal: campo de data (o usuário escolhe qual
     checagem está registrando, não é sempre "hoje"), os 22 setores
     fixos organizados visualmente em 2 grupos com cabeçalho separador
@@ -939,7 +974,7 @@ command `pip install -r requirements.txt` e Start command
     vez. "← Escolher outro tipo de registro" volta pra `/semanais`
     (não pra `/inicio`), mesmo padrão dos tipos diários voltando pra
     `/diarias`.
-17. **Registro de aferição dos termômetros** (`/afericao_termometro`)
+18. **Registro de aferição dos termômetros** (`/afericao_termometro`)
     — o terceiro tipo semanal, em 6 passos: (1) data; (2) temperatura
     quente do **padrão** (`AK240607938`) — campo único, uma leitura
     só pra sessão inteira; (3) temperatura quente de cada um dos 4
@@ -952,7 +987,7 @@ command `pip install -r requirements.txt` e Start command
     compartilhada. As 4 leituras dos 4 equipamentos + as 2 do padrão
     são todas obrigatórias — "tudo ou nada" num único envio. "←
     Escolher outro tipo de registro" também volta pra `/semanais`.
-18. **Registro de aferição das balanças** (`/afericao_balanca`) — o
+19. **Registro de aferição das balanças** (`/afericao_balanca`) — o
     segundo tipo semanal: campo de data, e as 20 balanças cadastradas
     (organizadas em grupos por setor, mesmo padrão visual do PAC
     08-E), cada uma com um campo numérico pra leitura da massa de
@@ -961,7 +996,7 @@ command `pip install -r requirements.txt` e Start command
     contrário do PAC 08-E, não é preciso preencher todas as balanças
     de uma vez: só as preenchidas são salvas no envio. "← Escolher
     outro tipo de registro" também volta pra `/semanais`.
-19. **Registro de monitoramento da iluminação** (`/iluminacao`) — o
+20. **Registro de monitoramento da iluminação** (`/iluminacao`) — o
     primeiro tipo **mensal**: campo de data, e os 21 pontos fixos
     organizados por setor (mesmo padrão visual dos checklists
     agrupados), cada um mostrando o mínimo de lux exigido (fixo,
@@ -970,7 +1005,7 @@ command `pip install -r requirements.txt` e Start command
     parcial, como o PAC 08-G: só os pontos preenchidos são salvos.
     Diferente de todos os outros tipos, não tem campo de responsável.
     "← Escolher outro tipo de registro" volta pra `/mensais`.
-20. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
+21. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
     direto para o painel daquele tipo; com dois ou mais (como hoje),
     mostra uma visão combinada por padrão (cartões de contagem por tipo
     + tabela unificada), com um seletor para entrar no painel completo
@@ -996,8 +1031,11 @@ command `pip install -r requirements.txt` e Start command
     juntas, pra não poluir a tela. O painel do PAC 08-F segue a mesma
     ideia, mas com só 4 termômetros (a legenda sempre fica visível) e
     o filtro comparando as duas diferenças (quente e fria) no
-    tooltip do gráfico.
-21. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
+    tooltip do gráfico. O painel do PAC 01-C não tem filtro por
+    sub-item (só 2 critérios fixos, sem lista) — o gráfico mostra 2
+    linhas fixas, uma por critério ("Agulhas Limpas", "Sem
+    Resíduos").
+22. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
     colunas do tipo em questão, respeitando os filtros aplicados.
     Linhas fora do padrão vêm destacadas em vermelho na planilha. O
     monitoramento de peso e o de gramatura geram duas abas cada: um
@@ -1020,7 +1058,9 @@ command `pip install -r requirements.txt` e Start command
     Equipamento, as 4 leituras de temperatura, Variação Aceitável,
     C/NC, Responsável. O PAC 08-D segue o mesmo estilo flat do PAC
     08-F (uma linha por leitura, não matriz), com as colunas: Dia,
-    Setor, Local, Lux Necessário, Lux Obtido, C/NC. O PAC 17 também gera duas abas: "Integridade
+    Setor, Local, Lux Necessário, Lux Obtido, C/NC. O PAC 01-C também
+    é flat, uma linha por registro: Data, Agulhas Limpas, Sem
+    Resíduos, Operador, Controle de Qualidade. O PAC 17 também gera duas abas: "Integridade
     Componentes" (os registros C/NC) e "Verificações RT" (o histórico
     de conferências rápidas, sempre com todos os equipamentos,
     ignorando o filtro do painel). Na visão combinada, "Exportar

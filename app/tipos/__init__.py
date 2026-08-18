@@ -24,3 +24,4 @@ from app.tipos import ventilacao  # noqa: E402,F401
 from app.tipos import afericao_balanca  # noqa: E402,F401
 from app.tipos import afericao_termometro  # noqa: E402,F401
 from app.tipos import iluminacao  # noqa: E402,F401
+from app.tipos import limpeza_agulhas_injetora  # noqa: E402,F401

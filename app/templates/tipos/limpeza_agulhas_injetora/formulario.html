@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block titulo %}Registrar Limpeza das Agulhas da Injetora{% endblock %}
+
+{% block conteudo %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <a href="{{ url_for('home.diarias') }}" class="link-voltar">← Escolher outro tipo de registro</a>
+    <form method="post" action="{{ url_for('limpeza_agulhas_injetora.registrar') }}" id="formLimpezaAgulhas" autocomplete="off">
+
+      <h2 class="titulo-secao">1. Data</h2>
+      <div class="mb-4">
+        <input
+          type="date"
+          name="data"
+          id="campoData"
+          class="form-control form-control-lg text-center"
+          value="{{ data_hoje }}"
+          required>
+      </div>
+
+      <h2 class="titulo-secao">2. Agulhas Limpas</h2>
+      <div class="row g-2 mb-4">
+        <div class="col-6">
+          <input type="radio" class="btn-check" name="agulhas_limpas" id="agulhas_c" value="C" required>
+          <label class="btn-status btn-status-c w-100" for="agulhas_c">✅ C</label>
+        </div>
+        <div class="col-6">
+          <input type="radio" class="btn-check" name="agulhas_limpas" id="agulhas_nc" value="NC" required>
+          <label class="btn-status btn-status-nc w-100" for="agulhas_nc">⚠️ NC</label>
+        </div>
+      </div>
+
+      <h2 class="titulo-secao">3. Sem Resíduos</h2>
+      <div class="row g-2 mb-4">
+        <div class="col-6">
+          <input type="radio" class="btn-check" name="sem_residuos" id="residuos_c" value="C" required>
+          <label class="btn-status btn-status-c w-100" for="residuos_c">✅ C</label>
+        </div>
+        <div class="col-6">
+          <input type="radio" class="btn-check" name="sem_residuos" id="residuos_nc" value="NC" required>
+          <label class="btn-status btn-status-nc w-100" for="residuos_nc">⚠️ NC</label>
+        </div>
+      </div>
+
+      <h2 class="titulo-secao">4. Operador</h2>
+      <div class="mb-4">
+        <input
+          type="text"
+          name="operador"
+          id="campoOperador"
+          class="form-control form-control-lg"
+          placeholder="Quem fez a limpeza"
+          list="listaOperadores"
+          required>
+        <datalist id="listaOperadores">
+          {% for nome in operadores %}
+          <option value="{{ nome }}">
+          {% endfor %}
+        </datalist>
+      </div>
+
+      <h2 class="titulo-secao">5. Controle de Qualidade</h2>
+      <div class="mb-4">
+        <input
+          type="text"
+          name="controle_qualidade"
+          id="campoControleQualidade"
+          class="form-control form-control-lg"
+          placeholder="Quem está registrando"
+          list="listaControlesQualidade"
+          required>
+        <datalist id="listaControlesQualidade">
+          {% for nome in controles_qualidade %}
+          <option value="{{ nome }}">
+          {% endfor %}
+        </datalist>
+      </div>
+
+      <button type="submit" class="btn btn-salvar w-100">💾 SALVAR</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+  (function () {
+    const campoOperador = document.getElementById("campoOperador");
+    const campoCQ = document.getElementById("campoControleQualidade");
+    const salvoOperador = localStorage.getItem("ultimoOperadorLimpezaAgulhas");
+    const salvoCQ = localStorage.getItem("ultimoControleQualidadeLimpezaAgulhas");
+    if (salvoOperador) {
+      campoOperador.value = salvoOperador;
+    }
+    if (salvoCQ) {
+      campoCQ.value = salvoCQ;
+    }
+
+    document.getElementById("formLimpezaAgulhas").addEventListener("submit", function () {
+      localStorage.setItem("ultimoOperadorLimpezaAgulhas", campoOperador.value);
+      localStorage.setItem("ultimoControleQualidadeLimpezaAgulhas", campoCQ.value);
+    });
+  })();
+</script>
+{% endblock %}
