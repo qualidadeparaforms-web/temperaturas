@@ -442,6 +442,29 @@ registro inteiro não conforme.
   Resíduos, Operador, Controle de Qualidade.
 - Modelo de dados e regras em `app/tipos/limpeza_agulhas_injetora/models.py`.
 
+## Regras de negócio — PAC 08-C - Calibrações pHmetro
+
+O quarto tipo semanal, e o mais simples do sistema: uma confirmação
+única (Sim/Não) de que a calibração semanal do pHmetro (soluções pH
+7, pH 4 e pH 10) foi feita, sem detalhar cada solução
+individualmente.
+
+- `calibracao_realizada` é um `Boolean` — "Sim" (`True`) ou "Não"
+  (`False`). "Não" é tratado como não conforme (`conforme =
+  calibracao_realizada`) e destacado em vermelho no painel e na
+  planilha, já que indica que a calibração da semana não foi feita.
+- Tela de registro com um único par de botões "✅ Sim"/"⚠️ Não" (mesmo
+  visual C/NC dos outros checklists, com os rótulos trocados) — não
+  "Sim ou Não" como texto solto, pra manter a consistência visual do
+  resto do sistema.
+- Painel simples (`/dashboard/calibracao_phmetro`), no mesmo estilo
+  do PAC 01-C: sem filtro por sub-item (só uma confirmação por
+  registro) — o gráfico mostra uma única linha, Sim/Não ao longo do
+  tempo.
+- Exportação em Excel é flat, com as 3 colunas exatas pedidas: Data,
+  Calibração Realizada (texto "Sim"/"Não"), Responsável.
+- Modelo de dados e regras em `app/tipos/calibracao_phmetro/models.py`.
+
 ## Estrutura do projeto
 
 ```
@@ -557,11 +580,12 @@ e cada um leva pra grade de tipos daquela frequência (`/diarias`,
 `/semanais`, `/mensais`, todas renderizadas pelo mesmo template
 `home_tipos.html`, filtrando `TIPOS_REGISTRO` pelo campo `categoria`
 de cada um via `tipos_por_categoria()`). Os 9 tipos originais são
-diários; PAC 08-E (Monitoramento da Ventilação), PAC 08-G (Aferição
-das Balanças) e PAC 08-F (Aferição dos Termômetros) são semanais —
-cada um só precisou de `categoria="semanal"` no seu
+diários (e o PAC 01-C se juntou a eles depois, o 10º); PAC 08-E
+(Monitoramento da Ventilação), PAC 08-G (Aferição das Balanças), PAC
+08-F (Aferição dos Termômetros) e PAC 08-C (Calibrações pHmetro) são
+semanais — cada um só precisou de `categoria="semanal"` no seu
 `TipoRegistro(...)`, sem tocar em `app/routes/home.py` nem nos
-templates, e `/semanais` já mostra os três lado a lado (ver
+templates, e `/semanais` já mostra os quatro lado a lado (ver
 `app/tipos/ventilacao/__init__.py`, `app/tipos/afericao_balanca/__init__.py`
 e `app/tipos/afericao_termometro/__init__.py` como referência de
 ponta a ponta pra um tipo não-diário — os dois últimos também mostram
@@ -886,10 +910,10 @@ command `pip install -r requirements.txt` e Start command
    Máquina Injetora" — os 10 tipos diários de hoje. Ao clicar, leva ao
    formulário daquele tipo; "← Voltar" retorna pra `/inicio`.
 4. **Semanais** (`/semanais`) — mesma tela de grade de "Diárias", já
-   com os 3 tipos semanais cadastrados: "🌬️ PAC 08-E - Monitoramento
-   da Ventilação" (item 16 abaixo), "🎯 PAC 08-F - Aferição dos
-   Termômetros" (item 17 abaixo) e "⚙️ PAC 08-G - Aferição das
-   Balanças" (item 18 abaixo). Um tipo semanal novo aparece aqui do
+   com os 4 tipos semanais cadastrados: "🌬️ PAC 08-E - Monitoramento
+   da Ventilação", "🎯 PAC 08-F - Aferição dos Termômetros", "⚙️ PAC
+   08-G - Aferição das Balanças" e "🧪 PAC 08-C - Calibrações
+   pHmetro" (item 19 abaixo). Um tipo semanal novo aparece aqui do
    lado, automaticamente.
 5. **Mensais** (`/mensais`) — mesma tela de grade, já com o primeiro
    tipo mensal cadastrado: "💡 PAC 08-D - Monitoramento da
@@ -996,7 +1020,13 @@ command `pip install -r requirements.txt` e Start command
     contrário do PAC 08-E, não é preciso preencher todas as balanças
     de uma vez: só as preenchidas são salvas no envio. "← Escolher
     outro tipo de registro" também volta pra `/semanais`.
-20. **Registro de monitoramento da iluminação** (`/iluminacao`) — o
+20. **Registro de calibração do pHmetro** (`/calibracao_phmetro`) — o
+    mais simples de todos os tipos: campo de data, um único par de
+    botões "✅ Sim"/"⚠️ Não" pra confirmar se a calibração semanal
+    (soluções pH 7, pH 4 e pH 10) foi feita, e responsável. "Não" fica
+    destacado em vermelho no painel e na planilha. "← Escolher outro
+    tipo de registro" também volta pra `/semanais`.
+21. **Registro de monitoramento da iluminação** (`/iluminacao`) — o
     primeiro tipo **mensal**: campo de data, e os 21 pontos fixos
     organizados por setor (mesmo padrão visual dos checklists
     agrupados), cada um mostrando o mínimo de lux exigido (fixo,
@@ -1005,7 +1035,7 @@ command `pip install -r requirements.txt` e Start command
     parcial, como o PAC 08-G: só os pontos preenchidos são salvos.
     Diferente de todos os outros tipos, não tem campo de responsável.
     "← Escolher outro tipo de registro" volta pra `/mensais`.
-21. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
+22. **Painel** (`/dashboard`) — com um único tipo cadastrado, vai
     direto para o painel daquele tipo; com dois ou mais (como hoje),
     mostra uma visão combinada por padrão (cartões de contagem por tipo
     + tabela unificada), com um seletor para entrar no painel completo
@@ -1034,8 +1064,9 @@ command `pip install -r requirements.txt` e Start command
     tooltip do gráfico. O painel do PAC 01-C não tem filtro por
     sub-item (só 2 critérios fixos, sem lista) — o gráfico mostra 2
     linhas fixas, uma por critério ("Agulhas Limpas", "Sem
-    Resíduos").
-22. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
+    Resíduos"). O painel do PAC 08-C é o mais simples de todos: sem
+    filtro por sub-item, uma única linha Sim/Não ao longo do tempo.
+23. **Exportar Excel** — botão no painel que baixa um `.xlsx` com as
     colunas do tipo em questão, respeitando os filtros aplicados.
     Linhas fora do padrão vêm destacadas em vermelho na planilha. O
     monitoramento de peso e o de gramatura geram duas abas cada: um
@@ -1060,7 +1091,9 @@ command `pip install -r requirements.txt` e Start command
     08-F (uma linha por leitura, não matriz), com as colunas: Dia,
     Setor, Local, Lux Necessário, Lux Obtido, C/NC. O PAC 01-C também
     é flat, uma linha por registro: Data, Agulhas Limpas, Sem
-    Resíduos, Operador, Controle de Qualidade. O PAC 17 também gera duas abas: "Integridade
+    Resíduos, Operador, Controle de Qualidade. O PAC 08-C é o mais
+    simples de todos, com só 3 colunas: Data, Calibração Realizada
+    (Sim/Não), Responsável. O PAC 17 também gera duas abas: "Integridade
     Componentes" (os registros C/NC) e "Verificações RT" (o histórico
     de conferências rápidas, sempre com todos os equipamentos,
     ignorando o filtro do painel). Na visão combinada, "Exportar
